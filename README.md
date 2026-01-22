@@ -18,7 +18,7 @@ Powered by [MaaFramework](https://github.com/MaaXYZ/MaaFramework) & [MXU](https:
 
 </div>
 
-## 说明
+## 项目说明
 
 正在开发中，暂无实际功能，敬请期待！（新版本会自动更新）
 
