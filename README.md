@@ -43,3 +43,16 @@ Powered by [MaaFramework](https://github.com/MaaXYZ/MaaFramework) & [MXU](https:
 
 - 用户 QQ 群: [1062010346](https://qm.qq.com/q/MN6XLvtZia)
 - 开发 QQ 群: [1072587329](https://qm.qq.com/q/EyirQpBiW4) （干活群，欢迎加入一起开发，但不受理用户问题）
+
+## 鸣谢
+
+感谢以下开发者对 MXU 作出的贡献：
+
+[![贡献者](https://contrib.rocks/image?repo=MistEO/MXU&max=1000)](https://github.com/MistEO/MXU/graphs/contributors)
+
+## 赞助
+
+<!-- markdownlint-disable MD045 -->
+<a href="https://afdian.com/a/misteo">
+  <img width="200" src="https://pic1.afdiancdn.com/static/img/welcome/button-sponsorme.png">
+</a>
