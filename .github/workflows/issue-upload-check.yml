@@ -1,0 +1,76 @@
+name: Issue Upload Check
+
+on:
+  issues:
+    types: [opened, edited]
+
+jobs:
+  check-upload-status:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Check for upload keywords
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const issue = context.payload.issue;
+            const issueBody = issue.body || '';
+            
+            // 检查是否包含上传相关的关键词
+            const uploadFailedPattern = /Failed to upload/i;
+            const uploadingPattern = /Uploading/i;
+            
+            const hasUploadFailed = uploadFailedPattern.test(issueBody);
+            const hasUploading = uploadingPattern.test(issueBody);
+            
+            if (hasUploadFailed || hasUploading) {
+              // 检查是否已经回复过
+              const comments = await github.rest.issues.listComments({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number
+              });
+              
+              const botAlreadyCommented = comments.data.some(comment => 
+                comment.user.type === 'Bot' && 
+                comment.body.includes('我们检测到你的 issue 中包含上传相关的信息')
+              );
+              
+              if (!botAlreadyCommented) {
+                let replyMessage = '👋 你好！我们检测到你的 issue 中包含上传相关的信息。\n\n';
+                
+                if (hasUploadFailed) {
+                  replyMessage += '⚠️ **检测到上传失败**\n';
+                  replyMessage += '如果你在提交 issue 时遇到了文件上传失败的问题，请：\n';
+                  replyMessage += '1. 确认网络连接正常\n';
+                  replyMessage += '2. 检查文件大小是否超过 GitHub 限制（单个文件 25MB，总共 100MB）\n';
+                  replyMessage += '3. 尝试重新上传文件\n';
+                  replyMessage += '4. 如果问题持续存在，可以将文件上传到其他平台（如 QQ 群文件）并在 issue 中提供备注具体文件名\n\n';
+                }
+                
+                if (hasUploading) {
+                  replyMessage += '⏳ **检测到上传进行中**\n';
+                  replyMessage += '看起来你可能在文件还在上传时就提交了 issue。为了确保我们能看到完整的信息，请：\n';
+                  replyMessage += '1. 等待文件上传完成后再提交\n';
+                  replyMessage += '2. 如果已经提交，可以编辑 issue 重新上传文件\n';
+                  replyMessage += '3. 或者将文件上传到其他平台（如 QQ 群文件）并在 issue 中提供备注具体文件名\n\n';
+                }
+                
+                replyMessage += '感谢你的反馈！🙏';
+                
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issue.number,
+                  body: replyMessage
+                });
+                
+                console.log('已自动回复 issue #' + issue.number);
+              } else {
+                console.log('Bot 已经回复过此 issue，跳过重复回复');
+              }
+            } else {
+              console.log('未检测到上传相关关键词');
+            }
