@@ -223,6 +223,7 @@
     "option.AutoEssenceRepeatCount.inputs.AutoEssenceRepeatCountValue.label": "최대 반복 횟수",
     "option.AutoEssenceRepeatCount.inputs.AutoEssenceRepeatCountValue.description": "1로 설정 시 반복하지 않음",
     "option.EssenceFilterAfterBattle.label": "전투 후 기질 필터링",
+    "option.AutoEssenceDecomposeWhenFull.label": "무기 기질이 가득 차면 분해",
     "task.AutoEssence.focus.essence_filter_after_battle_start": "기질을 인식했습니다. 유효한 기질 필터링 및 잠금을 시작합니다.",
     "task.AutoEssence.focus.essence_filter_after_battle_init_succeeded": "초기화가 완료되었습니다.",
     "task.AutoEssence.focus.engrave_permit_insufficient": "각인권이 부족합니다",

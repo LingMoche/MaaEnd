@@ -223,6 +223,7 @@
     "option.AutoEssenceRepeatCount.inputs.AutoEssenceRepeatCountValue.label": "最大ループ回数",
     "option.AutoEssenceRepeatCount.inputs.AutoEssenceRepeatCountValue.description": "1に設定するとループしません",
     "option.EssenceFilterAfterBattle.label": "Essence Filter After Battle",
+    "option.AutoEssenceDecomposeWhenFull.label": "武器基質が満杯のとき分解",
     "task.AutoEssence.focus.essence_filter_after_battle_start": "基質を検出。有用な基質の絞り込みとロックを開始します。",
     "task.AutoEssence.focus.essence_filter_after_battle_init_succeeded": "初期化が完了しました。",
     "task.AutoEssence.focus.engrave_permit_insufficient": "刻印券が不足しています",

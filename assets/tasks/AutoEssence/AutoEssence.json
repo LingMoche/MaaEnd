@@ -334,6 +334,9 @@
                         "AutoEssenceClickObtainButton": {
                             "enabled": false
                         },
+                        "AutoEssenceObtainCapacityGate": {
+                            "enabled": false
+                        },
                         "AutoEssenceClickDiscardButton": {
                             "enabled": true
                         },
@@ -370,6 +373,7 @@
                     },
                     "option": [
                         "AutoEssenceDoOverride",
+                        "AutoEssenceDecomposeWhenFull",
                         "EssenceFilterAfterBattle",
                         "AutoUseSpMedication"
                     ]
@@ -396,6 +400,7 @@
                     },
                     "option": [
                         "AutoEssenceDoOverride",
+                        "AutoEssenceDecomposeWhenFull",
                         "EssenceFilterAfterBattle",
                         "AutoUseSpMedication"
                     ]
@@ -430,6 +435,7 @@
                     },
                     "option": [
                         "AutoEssenceDoOverride",
+                        "AutoEssenceDecomposeWhenFull",
                         "EssenceFilterAfterBattle",
                         "AutoUseSpMedication"
                     ]
@@ -456,6 +462,7 @@
                     },
                     "option": [
                         "AutoEssenceDoOverride",
+                        "AutoEssenceDecomposeWhenFull",
                         "EssenceFilterAfterBattle",
                         "AutoUseSpMedication"
                     ]
@@ -501,6 +508,7 @@
                         }
                     },
                     "option": [
+                        "AutoEssenceDecomposeWhenFull",
                         "AutoUseSpMedication"
                     ]
                 },
@@ -537,6 +545,7 @@
                         }
                     },
                     "option": [
+                        "AutoEssenceDecomposeWhenFull",
                         "AutoUseSpMedication"
                     ]
                 }
@@ -721,6 +730,29 @@
                     ]
                 }
             }
+        },
+        "AutoEssenceDecomposeWhenFull": {
+            "type": "switch",
+            "label": "$option.AutoEssenceDecomposeWhenFull.label",
+            "default_case": "No",
+            "cases": [
+                {
+                    "name": "Yes",
+                    "pipeline_override": {
+                        "AutoEssenceObtainCapacityGate": {
+                            "enabled": true
+                        }
+                    }
+                },
+                {
+                    "name": "No",
+                    "pipeline_override": {
+                        "AutoEssenceObtainCapacityGate": {
+                            "enabled": false
+                        }
+                    }
+                }
+            ]
         },
         "EssenceFilterAfterBattle": {
             "type": "switch",

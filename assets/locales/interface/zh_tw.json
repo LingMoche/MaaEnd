@@ -227,6 +227,7 @@
     "option.AutoEssenceRepeatCount.inputs.AutoEssenceRepeatCountValue.label": "最大循環次數",
     "option.AutoEssenceRepeatCount.inputs.AutoEssenceRepeatCountValue.description": "設為 1 表示不循環",
     "option.EssenceFilterAfterBattle.label": "戰後基質篩選",
+    "option.AutoEssenceDecomposeWhenFull.label": "武器基質滿倉時分解",
     "task.AutoEssence.focus.essence_filter_after_battle_start": "識別到基質，開始篩選並鎖定有用的",
     "task.AutoEssence.focus.essence_filter_after_battle_init_succeeded": "初始化完成",
     "task.AutoEssence.focus.engrave_permit_insufficient": "刻寫券不足",

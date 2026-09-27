@@ -227,6 +227,7 @@
     "option.AutoEssenceRepeatCount.inputs.AutoEssenceRepeatCountValue.label": "Max Loop Count",
     "option.AutoEssenceRepeatCount.inputs.AutoEssenceRepeatCountValue.description": "Set to 1 for no loop",
     "option.EssenceFilterAfterBattle.label": "Essence Filter After Battle",
+    "option.AutoEssenceDecomposeWhenFull.label": "Decompose When Weapon Essence Is Full",
     "task.AutoEssence.focus.essence_filter_after_battle_start": "Essence detected. Start filtering and locking useful ones.",
     "task.AutoEssence.focus.essence_filter_after_battle_init_succeeded": "Initialization completed.",
     "task.AutoEssence.focus.engrave_permit_insufficient": "Insufficient inscription vouchers",
