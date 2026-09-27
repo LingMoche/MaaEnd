@@ -213,6 +213,7 @@
             // 淤积点交互：激发 / 领取 / 放弃
             "AutoEssenceClickTriggerButton",
             "AutoEssenceObtainCapacityGate",
+            "AutoEssenceClickObtainButton",
             "AutoEssenceClickDiscardButton",
             "[JumpBack]AutoEssenceInObtain",
             // 无交互图标则纯寻路
@@ -1036,6 +1037,7 @@
         "post_delay": 0,
         "next": [
             "AutoEssenceObtainCapacityGate",
+            "AutoEssenceClickObtainButton",
             "AutoEssenceClickDiscardButton",
             "[JumpBack]AutoEssenceInObtain",
             "[Anchor]AutoEssenceMoveToTriggerPoint" // 未识别到领取时纯寻路回交互位，再由 Interact 处理
