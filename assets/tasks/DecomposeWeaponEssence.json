@@ -55,6 +55,24 @@
                             }
                         }
                     }
+                },
+                "AutoEssenceCapacityCannotReach": {
+                    "recognition": {
+                        "param": {
+                            "custom_recognition_param": {
+                                "expression": "{AutoEssenceCapacitySelectedCountOCR} == 0 && {DecomposeWeaponEssenceThreshold} < {AutoEssenceCapacityCountOCR}"
+                            }
+                        }
+                    }
+                },
+                "AutoEssenceCapacityNothingLeft": {
+                    "recognition": {
+                        "param": {
+                            "custom_recognition_param": {
+                                "expression": "{AutoEssenceCapacitySelectedCountOCR} == 0 && {AutoEssenceCapacityCountOCR} <= {DecomposeWeaponEssenceThreshold}"
+                            }
+                        }
+                    }
                 }
             }
         }

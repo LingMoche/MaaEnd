@@ -780,11 +780,13 @@
         "post_delay": 0,
         "rate_limit": 0,
         "next": [
-            "AutoEssenceCapacitySelected200"
+            "AutoEssenceCapacityBatchReady",
+            "AutoEssenceCapacityCannotReach",
+            "AutoEssenceCapacityNothingLeft"
         ]
     },
-    "AutoEssenceCapacitySelected200": {
-        "desc": "已选择 200/200",
+    "AutoEssenceCapacitySelectedCountOCR": {
+        "desc": "识别已选择数量。只取已选择/200里的已选择值",
         "recognition": {
             "type": "OCR",
             "param": {
@@ -795,27 +797,73 @@
                     70
                 ],
                 "expected": [
-                    "已选择 200/200",
-                    "已选择200/200"
-                ]
+                    // 已选择 200/200
+                    // @i18n-skip
+                    "已选择\\s*\\d+"
+                ],
+                "only_rec": true
             }
         },
-        "action": {
-            "type": "DoNothing"
+        "pre_delay": 0,
+        "post_delay": 0,
+        "rate_limit": 0
+    },
+    "AutoEssenceCapacityBatchReady": {
+        "desc": "还有可分解的基质，分解这一批",
+        "recognition": {
+            "type": "Custom",
+            "param": {
+                "custom_recognition": "ExpressionRecognition",
+                "custom_recognition_param": {
+                    "expression": "0 < {AutoEssenceCapacitySelectedCountOCR}"
+                }
+            }
         },
         "pre_delay": 0,
         "post_delay": 0,
         "rate_limit": 0,
         "next": [
             "AutoEssenceCapacityClickDecompose"
-        ],
-        "on_error": [
-            "AutoEssenceCapacityAbortExit",
-            "AutoEssenceCapacitySelectFailed"
+        ]
+    },
+    "AutoEssenceCapacityCannotReach": {
+        "desc": "没有可分解的基质，且库存仍高于阈值",
+        "recognition": {
+            "type": "Custom",
+            "param": {
+                "custom_recognition": "ExpressionRecognition",
+                "custom_recognition_param": {
+                    "expression": "{AutoEssenceCapacitySelectedCountOCR} == 0 && 1800 < {AutoEssenceCapacityCountOCR}"
+                }
+            }
+        },
+        "pre_delay": 0,
+        "post_delay": 0,
+        "rate_limit": 0,
+        "next": [
+            "AutoEssenceCapacityAbortExit"
+        ]
+    },
+    "AutoEssenceCapacityNothingLeft": {
+        "desc": "没有可分解的基质，库存已经不高于阈值",
+        "recognition": {
+            "type": "Custom",
+            "param": {
+                "custom_recognition": "ExpressionRecognition",
+                "custom_recognition_param": {
+                    "expression": "{AutoEssenceCapacitySelectedCountOCR} == 0 && {AutoEssenceCapacityCountOCR} <= 1800"
+                }
+            }
+        },
+        "pre_delay": 0,
+        "post_delay": 0,
+        "rate_limit": 0,
+        "next": [
+            "AutoEssenceCapacityClickExit"
         ]
     },
     "AutoEssenceCapacityClickDecompose": {
-        "desc": "点击黄色分解按钮，分解这一批 200 个",
+        "desc": "点击黄色分解按钮，分解这一批",
         "recognition": {
             "type": "OCR",
             "param": {
@@ -951,7 +999,7 @@
         ]
     },
     "AutoEssenceCapacityRewardClosed": {
-        "desc": "弹窗已关闭，回到武器基质页",
+        "desc": "弹窗已关闭，回到武器基质页并再次确认数量",
         "recognition": {
             "type": "And",
             "param": {
@@ -967,7 +1015,9 @@
         "post_delay": 0,
         "rate_limit": 0,
         "next": [
-            "AutoEssenceCapacityReturnWorld"
+            "AutoEssenceCapacityOverflow",
+            "AutoEssenceCapacityEnough",
+            "AutoEssenceCapacityReadFailed"
         ]
     },
     "AutoEssenceCapacityClickExit": {
@@ -997,7 +1047,7 @@
         ]
     },
     "AutoEssenceCapacityAbortExit": {
-        "desc": "没选中 200 个时退出分解页",
+        "desc": "没有可分解的基质且仍高于阈值时退出分解页",
         "recognition": {
             "type": "OCR",
             "param": {
@@ -1023,7 +1073,7 @@
         ]
     },
     "AutoEssenceCapacitySelectFailed": {
-        "desc": "快捷放入后没有选中 200 个基质",
+        "desc": "没有可分解的基质，且库存仍高于阈值",
         "action": {
             "type": "StopTask"
         },
