@@ -1,30 +1,12 @@
 {
-    "AutoEssenceObtainCapacityGate": {
-        "desc": "看到领取按钮后先确认武器基质库存，再点击领取",
-        "enabled": false,
-        "recognition": {
-            "type": "And",
-            "param": {
-                "all_of": [
-                    "__AutoEssenceRecoEssenceObtainButton",
-                    "__AutoEssenceRecoEssenceObtainText"
-                ],
-                "box_index": 1
-            }
-        },
-        "action": {
-            "type": "DoNothing"
-        },
+    "DecomposeWeaponEssenceStart": {
+        "desc": "进入贵重品库，按阈值分解武器基质",
         "pre_delay": 0,
         "post_delay": 0,
         "rate_limit": 0,
         "next": [
-            "[JumpBack]AutoEssenceCapacityEnter",
-            "AutoEssenceClickObtainButton"
-        ],
-        "focus": {
-            "Node.Action.Starting": "领取前确认武器基质库存"
-        }
+            "AutoEssenceCapacityEnter"
+        ]
     },
     "AutoEssenceCapacityEnter": {
         "desc": "进入贵重品库的武器基质页",
@@ -101,10 +83,10 @@
                     150,
                     36
                 ],
-                // 武器基质 2004/2000
                 "expected": [
-                    "\\d+",
-                    "// @i18n-skip"
+                    // 武器基质 2004/2000，只取当前值
+                    // @i18n-skip
+                    "\\d+"
                 ],
                 "only_rec": true
             }
@@ -114,13 +96,13 @@
         "rate_limit": 0
     },
     "AutoEssenceCapacityOverflow": {
-        "desc": "武器基质数量达到或超过 2000",
+        "desc": "武器基质数量高于阈值",
         "recognition": {
             "type": "Custom",
             "param": {
                 "custom_recognition": "ExpressionRecognition",
                 "custom_recognition_param": {
-                    "expression": "1999 < {AutoEssenceCapacityCountOCR}",
+                    "expression": "1800 < {AutoEssenceCapacityCountOCR}",
                     "focus_matched_resolved_expression": true
                 }
             }
@@ -132,17 +114,17 @@
             "AutoEssenceCapacityClickRecycle"
         ],
         "focus": {
-            "Node.Recognition.Succeeded": "武器基质已满，分解 200 个后再领取"
+            "Node.Recognition.Succeeded": "武器基质高于阈值，分解 200 个"
         }
     },
     "AutoEssenceCapacityEnough": {
-        "desc": "武器基质数量低于 2000",
+        "desc": "武器基质数量未高于阈值",
         "recognition": {
             "type": "Custom",
             "param": {
                 "custom_recognition": "ExpressionRecognition",
                 "custom_recognition_param": {
-                    "expression": "{AutoEssenceCapacityCountOCR} < 2000"
+                    "expression": "{AutoEssenceCapacityCountOCR} <= 1800"
                 }
             }
         },
@@ -153,7 +135,7 @@
             "AutoEssenceCapacityReturnWorld"
         ],
         "focus": {
-            "Node.Recognition.Succeeded": "武器基质未满，返回领取"
+            "Node.Recognition.Succeeded": "武器基质未高于阈值，返回大世界"
         }
     },
     "AutoEssenceCapacityReadFailed": {
@@ -162,7 +144,7 @@
             "type": "StopTask"
         },
         "focus": {
-            "Node.Action.Starting": "读不到武器基质数量，已停止领取"
+            "Node.Action.Starting": "读不到武器基质数量，已停止任务"
         }
     },
     "AutoEssenceCapacityClickRecycle": {
@@ -843,10 +825,10 @@
                     400,
                     80
                 ],
-                // 分解
                 "expected": [
-                    "(?<!无法)分解",
-                    "// @i18n-skip"
+                    // 分解
+                    // @i18n-skip
+                    "(?<!无法)分解"
                 ]
             }
         },
@@ -887,6 +869,9 @@
         "rate_limit": 0,
         "next": [
             "AutoEssenceCapacityClickConfirm"
+        ],
+        "on_error": [
+            "AutoEssenceCapacityAbortExit"
         ]
     },
     "AutoEssenceCapacityClickConfirm": {
@@ -939,6 +924,9 @@
         "rate_limit": 0,
         "next": [
             "AutoEssenceCapacityClickRewardClose"
+        ],
+        "on_error": [
+            "AutoEssenceCapacityAbortExit"
         ]
     },
     "AutoEssenceCapacityClickRewardClose": {
@@ -1040,7 +1028,7 @@
             "type": "StopTask"
         },
         "focus": {
-            "Node.Action.Starting": "没有选中 200 个可分解基质，已停止领取"
+            "Node.Action.Starting": "$task.DecomposeWeaponEssence.focus.insufficient"
         }
     },
     "AutoEssenceCapacityCloseValuables": {
@@ -1090,7 +1078,7 @@
         ]
     },
     "AutoEssenceCapacityBackInWorld": {
-        "desc": "已在大世界，继续领取",
+        "desc": "已在大世界，任务结束",
         "recognition": {
             "type": "And",
             "param": {
@@ -1105,12 +1093,10 @@
         "pre_delay": 0,
         "post_delay": 0,
         "rate_limit": 0,
-        "next": [
-            "AutoEssenceClickObtainButton"
-        ]
+        "next": []
     },
     "AutoEssenceCapacityReturnWorld": {
-        "desc": "回到大世界，继续原来的领取",
+        "desc": "回到大世界",
         "pre_delay": 0,
         "post_delay": 0,
         "rate_limit": 0,

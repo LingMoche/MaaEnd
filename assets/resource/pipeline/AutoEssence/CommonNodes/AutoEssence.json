@@ -212,7 +212,6 @@
             "__AutoEssenceForceTeleportOnce",
             // 淤积点交互：激发 / 领取 / 放弃
             "AutoEssenceClickTriggerButton",
-            "AutoEssenceObtainCapacityGate",
             "AutoEssenceClickObtainButton",
             "AutoEssenceClickDiscardButton",
             "[JumpBack]AutoEssenceInObtain",
@@ -1036,7 +1035,6 @@
         "pre_delay": 0,
         "post_delay": 0,
         "next": [
-            "AutoEssenceObtainCapacityGate",
             "AutoEssenceClickObtainButton",
             "AutoEssenceClickDiscardButton",
             "[JumpBack]AutoEssenceInObtain",
