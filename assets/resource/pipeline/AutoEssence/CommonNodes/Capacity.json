@@ -167,15 +167,6 @@
             "type": "Click"
         },
         "pre_delay": 0,
-        "post_wait_freezes": {
-            "time": 300,
-            "target": [
-                0,
-                450,
-                700,
-                270
-            ]
-        },
         "post_delay": 0,
         "rate_limit": 0,
         "next": [
@@ -768,13 +759,15 @@
             "type": "Click"
         },
         "pre_delay": 0,
+        // 只等「已选择」数字静止。整条底栏含滚动黄条，永远等不满，会空等默认 20 秒
         "post_wait_freezes": {
-            "time": 400,
+            "time": 200,
+            "timeout": 1000,
             "target": [
                 0,
-                560,
-                1280,
-                160
+                620,
+                250,
+                80
             ]
         },
         "post_delay": 0,
@@ -978,12 +971,13 @@
         ]
     },
     "AutoEssenceCapacityClickRewardClose": {
-        "desc": "关闭分解获得弹窗",
+        "desc": "等关闭按钮静止后再点。弹窗还在就再点一次",
         "recognition": {
             "type": "And",
             "param": {
                 "all_of": [
-                    "CloseRewardsButton"
+                    "CloseRewardsButton",
+                    "AutoEssenceCapacityRewardPrompt"
                 ],
                 "box_index": 0
             }
@@ -991,11 +985,18 @@
         "action": {
             "type": "Click"
         },
+        // 与 CloseRewardsButton 相同：先等按钮静止，避免弹窗动画吃掉点击
+        "pre_wait_freezes": {
+            "time": 50,
+            "timeout": 1000
+        },
         "pre_delay": 0,
         "post_delay": 0,
         "rate_limit": 0,
+        "max_hit": 3,
         "next": [
-            "AutoEssenceCapacityRewardClosed"
+            "AutoEssenceCapacityRewardClosed",
+            "AutoEssenceCapacityClickRewardClose"
         ]
     },
     "AutoEssenceCapacityRewardClosed": {
@@ -1025,11 +1026,12 @@
         "recognition": {
             "type": "OCR",
             "param": {
+                // 空列表时「退出」在提示栏右侧，位于底栏「无法分解」上方
                 "roi": [
                     1050,
-                    600,
-                    220,
-                    80
+                    520,
+                    230,
+                    160
                 ],
                 "expected": [
                     "退出"
@@ -1051,11 +1053,12 @@
         "recognition": {
             "type": "OCR",
             "param": {
+                // 空列表时「退出」在提示栏右侧，位于底栏「无法分解」上方
                 "roi": [
                     1050,
-                    600,
-                    220,
-                    80
+                    520,
+                    230,
+                    160
                 ],
                 "expected": [
                     "退出"
@@ -1073,12 +1076,18 @@
         ]
     },
     "AutoEssenceCapacitySelectFailed": {
-        "desc": "没有可分解的基质，且库存仍高于阈值",
+        "desc": "没有可分解的基质，库存仍高于阈值，任务失败",
         "action": {
-            "type": "StopTask"
+            "type": "Custom",
+            "param": {
+                "custom_action": "325"
+            }
         },
+        "pre_delay": 0,
+        "post_delay": 0,
+        "rate_limit": 0,
         "focus": {
-            "Node.Action.Starting": "$task.DecomposeWeaponEssence.focus.insufficient"
+            "Node.Action.Failed": "$task.DecomposeWeaponEssence.focus.insufficient"
         }
     },
     "AutoEssenceCapacityCloseValuables": {

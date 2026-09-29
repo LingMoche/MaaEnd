@@ -170,7 +170,7 @@
     "task.EssenceFilter.focus.afterbattle_tier_skip_pure_only": "순수만 선택: 무결 기질을 건너뜁니다",
     "task.DecomposeWeaponEssence.label": "무기 기질 분해",
     "task.DecomposeWeaponEssence.description": "무기 기질 수량이 설정값보다 높은 동안 금색이 아닌 기질을 한 번에 최대 200개씩 분해하고, 설정값 이하가 될 때까지 반복합니다. 분해할 기질이 없고 수량이 여전히 설정값보다 높을 때만 중지하고 알립니다. 기본값은 1800입니다.",
-    "task.DecomposeWeaponEssence.focus.insufficient": "분해할 기질이 없고, 수량이 여전히 설정값보다 높습니다. 새 기질 파밍을 멈추거나 금색 기질을 직접 정리하세요.",
+    "task.DecomposeWeaponEssence.focus.insufficient": "<span style=\"color: red; font-weight: bold;\">작업 실패: 분해할 기질이 없고, 수량이 여전히 설정값보다 높습니다</span>",
     "option.DecomposeWeaponEssenceThreshold.label": "분해 기준",
     "option.DecomposeWeaponEssenceThreshold.inputs.DecomposeWeaponEssenceThreshold.label": "이 수량을 넘으면 분해",
     "option.SelectWeaponRarity.label": "무기 희귀도",
