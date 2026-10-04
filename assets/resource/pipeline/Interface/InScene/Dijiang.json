@@ -271,7 +271,7 @@
         }
     },
     "ReceptionRoomExchangeEnd1": {
-        "desc": "识别会客室情报交流结束弹窗，仅供场景判断，确认与奖励处理由业务负责",
+        "desc": "识别会客室情报交流结束弹窗，确认操作由 SceneManager 负责",
         "recognition": {
             "type": "OCR",
             "param": {

@@ -626,6 +626,7 @@
         "rate_limit": 0,
         "next": [
             "InControlNexus",
+            "[JumpBack]__ScenePrivateDijiangReceptionRoomExchangeConfirm",
             "[JumpBack]SceneExitMenuDijiangFacility",
             "__ScenePrivateWorldEnterMenuControlNexus",
             "[JumpBack]SceneEnterWorldDijiang"
@@ -638,7 +639,8 @@
         "rate_limit": 0,
         "next": [
             "InDijiangOperatorAssignment",
-            "__ScenePrivateDijiangFacilityEnterOperatorAssignment"
+            "[JumpBack]__ScenePrivateDijiangReceptionRoomExchangeConfirm",
+            "[JumpBack]__ScenePrivateDijiangFacilityEnterOperatorAssignment"
         ]
     },
     "SceneEnterMenuDijiangReceptionRoom": {
@@ -648,7 +650,8 @@
         "rate_limit": 0,
         "next": [
             "__ScenePrivateDijiangReceptionRoomEnterSuccess",
-            "__ScenePrivateDijiangControlNexusEnterReceptionRoom",
+            "[JumpBack]__ScenePrivateDijiangReceptionRoomExchangeConfirm",
+            "[JumpBack]__ScenePrivateDijiangControlNexusEnterReceptionRoom",
             "[JumpBack]SceneEnterMenuDijiangControlNexus"
         ]
     },
@@ -659,7 +662,8 @@
         "rate_limit": 0,
         "next": [
             "InDijiangMFGCabin",
-            "__ScenePrivateDijiangControlNexusEnterMFGCabin",
+            "[JumpBack]__ScenePrivateDijiangReceptionRoomExchangeConfirm",
+            "[JumpBack]__ScenePrivateDijiangControlNexusEnterMFGCabin",
             "[JumpBack]SceneEnterMenuDijiangControlNexus"
         ]
     },
@@ -670,12 +674,13 @@
         "rate_limit": 0,
         "next": [
             "InDijiangGrowthChamber",
-            "__ScenePrivateDijiangControlNexusEnterGrowthChamber",
+            "[JumpBack]__ScenePrivateDijiangReceptionRoomExchangeConfirm",
+            "[JumpBack]__ScenePrivateDijiangControlNexusEnterGrowthChamber",
             "[JumpBack]SceneEnterMenuDijiangControlNexus"
         ]
     },
     "SceneExitMenuDijiangFacility": {
-        "desc": "从当前帝江号舱室详情返回基建总览；会客室交流结束弹窗阻断时返回调用方处理",
+        "desc": "从当前帝江号舱室详情返回基建总览，自动确认阻断导航的情报交流结束弹窗",
         "recognition": {
             "type": "Or",
             "param": {
@@ -683,7 +688,8 @@
                     "InControlNexus",
                     "InDijiangReceptionRoom",
                     "InDijiangMFGCabin",
-                    "InDijiangGrowthChamber"
+                    "InDijiangGrowthChamber",
+                    "ReceptionRoomExchangeEnd1"
                 ]
             }
         },
@@ -692,7 +698,8 @@
         "rate_limit": 0,
         "next": [
             "InControlNexus",
-            "__ScenePrivateDijiangFacilityExit"
+            "[JumpBack]__ScenePrivateDijiangReceptionRoomExchangeConfirm",
+            "[JumpBack]__ScenePrivateDijiangFacilityExit"
         ]
     }
 }

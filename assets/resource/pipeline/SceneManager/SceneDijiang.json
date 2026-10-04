@@ -223,7 +223,8 @@
         "post_delay": 0,
         "rate_limit": 0,
         "next": [
-            "InDijiangOperatorAssignment"
+            "InDijiangOperatorAssignment",
+            "ReceptionRoomExchangeEnd1"
         ]
     },
     "__ScenePrivateMapDijiangEnterWorldAnchor": {
@@ -261,7 +262,8 @@
         "post_delay": 0,
         "rate_limit": 0,
         "next": [
-            "__ScenePrivateDijiangReceptionRoomEnterSuccess"
+            "__ScenePrivateDijiangReceptionRoomEnterSuccess",
+            "ReceptionRoomExchangeEnd1"
         ]
     },
     "__ScenePrivateDijiangControlNexusEnterMFGCabin": {
@@ -282,7 +284,8 @@
         "post_delay": 0,
         "rate_limit": 0,
         "next": [
-            "InDijiangMFGCabin"
+            "InDijiangMFGCabin",
+            "ReceptionRoomExchangeEnd1"
         ]
     },
     "__ScenePrivateDijiangControlNexusEnterGrowthChamber": {
@@ -303,23 +306,48 @@
         "post_delay": 0,
         "rate_limit": 0,
         "next": [
-            "InDijiangGrowthChamber"
+            "InDijiangGrowthChamber",
+            "ReceptionRoomExchangeEnd1"
         ]
     },
     "__ScenePrivateDijiangReceptionRoomEnterSuccess": {
-        "desc": "确认进入会客室详情或交流结束弹窗，弹窗由调用方业务处理",
+        "desc": "确认进入会客室详情，结算弹窗处理后才返回调用方",
         "recognition": {
-            "type": "Or",
+            "type": "And",
             "param": {
-                "any_of": [
-                    "InDijiangReceptionRoom",
-                    "ReceptionRoomExchangeEnd1"
+                "all_of": [
+                    "InDijiangReceptionRoom"
                 ]
             }
         },
         "pre_delay": 0,
         "post_delay": 0,
         "rate_limit": 0
+    },
+    "__ScenePrivateDijiangReceptionRoomExchangeConfirm": {
+        "desc": "识别情报交流结束标题及白色确认按钮，确认结算后等待回到会客室或总览",
+        "recognition": {
+            "type": "And",
+            "param": {
+                "all_of": [
+                    "ReceptionRoomExchangeEnd1",
+                    "WhiteConfirmButtonType1",
+                    "WhiteButtonConfirmText"
+                ],
+                "box_index": 2
+            }
+        },
+        "pre_wait_freezes": 200,
+        "pre_delay": 0,
+        "action": {
+            "type": "Click"
+        },
+        "post_delay": 0,
+        "rate_limit": 0,
+        "next": [
+            "InDijiangReceptionRoom",
+            "InControlNexus"
+        ]
     },
     "__ScenePrivateDijiangFacilityExit": {
         "desc": "在帝江号舱室详情识别关闭按钮并返回总览，交流结束弹窗只识别不确认",

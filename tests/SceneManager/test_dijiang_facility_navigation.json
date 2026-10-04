@@ -9,28 +9,33 @@
             "image": "帝江号_会客室_舱室详情.png",
             "hits": [
                 "InDijiangReceptionRoom",
-                "__ScenePrivateDijiangFacilityExit"
+                "__ScenePrivateDijiangReceptionRoomEnterSuccess",
+                "__ScenePrivateDijiangFacilityExit",
+                "SceneExitMenuDijiangFacility"
             ]
         },
         {
             "image": "帝江号_制造舱_干员经验素材_舱室详情.png",
             "hits": [
                 "InDijiangMFGCabin",
-                "__ScenePrivateDijiangFacilityExit"
+                "__ScenePrivateDijiangFacilityExit",
+                "SceneExitMenuDijiangFacility"
             ]
         },
         {
             "image": "帝江号_制造舱_武器经验素材_舱室详情.png",
             "hits": [
                 "InDijiangMFGCabin",
-                "__ScenePrivateDijiangFacilityExit"
+                "__ScenePrivateDijiangFacilityExit",
+                "SceneExitMenuDijiangFacility"
             ]
         },
         {
             "image": "帝江号_培养舱_舱室详情.png",
             "hits": [
                 "InDijiangGrowthChamber",
-                "__ScenePrivateDijiangFacilityExit"
+                "__ScenePrivateDijiangFacilityExit",
+                "SceneExitMenuDijiangFacility"
             ]
         },
         {
@@ -55,6 +60,22 @@
         },
         {
             "image": "帝江号_培养舱_干员派驻.png",
+            "hits": []
+        },
+        {
+            "image": "帝江号_会客室_情报交流结束.png",
+            "hits": [
+                "ReceptionRoomExchangeEnd1",
+                "__ScenePrivateDijiangReceptionRoomExchangeConfirm",
+                "SceneExitMenuDijiangFacility"
+            ]
+        },
+        {
+            "image": "帝江号_控制中枢_制造舱_确认收货.png",
+            "hits": []
+        },
+        {
+            "image": "帝江号_控制中枢_会客室_点击开展交流.png",
             "hits": []
         }
     ]

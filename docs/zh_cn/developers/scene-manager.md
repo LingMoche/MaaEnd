@@ -102,7 +102,7 @@ SceneManager 使用 MaaFramework 的 `[JumpBack]` 机制，将场景接口组织
 
 制造舱入口沿用现有红点定位，业务任务在总览继续扫描下一个有提示的舱室；导航接口不限制执行次数。派驻入口要求当前已在舱室详情页，先用对应入舱接口进入目标舱室。
 
-会客室进入或退出时若出现情报交流结束弹窗，导航只识别弹窗并返回调用方，由基建业务继续确认和领奖。`SceneExitMenuDijiangFacility` 仅处理当前舱室详情或已在总览的状态。`InDijiangOperatorAssignment` 的页面识别包含其筛选和排序弹窗。
+基建导航遇到情报交流结束弹窗时，SceneManager 识别结算标题和确认按钮后完成确认，再继续进入舱室、返回总览或打开派驻页；会客室入口仅在确认已进入详情后返回。基建业务中的结算确认同样调用会客室入口，结算后继续原业务。`SceneExitMenuDijiangFacility` 处理当前舱室详情、交流结束弹窗或已在总览的状态。`InDijiangOperatorAssignment` 的页面识别包含其筛选和排序弹窗。
 
 ## 帝江号仓库接口
 

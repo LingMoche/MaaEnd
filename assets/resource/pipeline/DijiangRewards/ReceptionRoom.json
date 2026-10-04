@@ -79,26 +79,21 @@
         }
     },
     "ReceptionRoomClueExchangeConfirm": {
-        "desc": "[会客室·线索] 情报交流结束弹窗出现时点击确认结束",
+        "desc": "[会客室·线索] 通过 SceneManager 确认情报交流结算后继续会客室业务",
         "recognition": {
             "type": "And",
             "param": {
                 "all_of": [
-                    "WhiteConfirmButtonType1",
-                    "WhiteButtonConfirmText"
-                ],
-                "box_index": 1
+                    "ReceptionRoomExchangeEnd1"
+                ]
             }
         },
-        "pre_wait_freezes": 200,
         "pre_delay": 0,
-        "action": {
-            "type": "Click"
-        },
         "post_delay": 0,
         "rate_limit": 0,
         "next": [
-            "ReceptionRoomViewIn"
+            "ReceptionRoomViewIn",
+            "[JumpBack]SceneEnterMenuDijiangReceptionRoom"
         ]
     },
     "ReceptionRoomViewWait": {
