@@ -1,33 +1,22 @@
 {
     "ReceptionRoomMain": {
-        "desc": "[会客室·进入] 主流程: 从控制中枢点击会客室区域进入",
+        "desc": "[会客室·进入] 从控制中枢识别会客室入口，通过 SceneManager 进入",
         "max_hit": 1,
         "recognition": {
-            "type": "OCR",
+            "type": "And",
             "param": {
-                "roi": [
-                    485,
-                    0,
-                    336,
-                    260
-                ],
-                "expected": [
-                    "^会客室$",
-                    "^會客室$",
-                    "Reception"
+                "all_of": [
+                    "InDijiangReceptionRoomEntrance"
                 ]
             }
         },
-        "pre_wait_freezes": 200,
         "pre_delay": 0,
-        "action": {
-            "type": "Click"
-        },
         "post_delay": 0,
         "rate_limit": 0,
         "next": [
             "ReceptionRoomClueExchangeWait",
-            "ReceptionRoomViewWait"
+            "ReceptionRoomViewWait",
+            "[JumpBack]SceneEnterMenuDijiangReceptionRoom"
         ]
     },
     "ReceptionRoomClueExchangeWait": {
@@ -85,27 +74,6 @@
                     35,
                     255,
                     255
-                ]
-            }
-        }
-    },
-    "ReceptionRoomExchangeEnd1": {
-        "desc": "[会客室·线索] 识别到情报交流结束的弹窗",
-        "recognition": {
-            "type": "OCR",
-            "param": {
-                "roi": [
-                    400,
-                    0,
-                    500,
-                    250
-                ],
-                "expected": [
-                    "情报交流结束",
-                    "情報交流結束",
-                    "(?i)Clue\\s*Exchange\\s*Ended",
-                    "共有会終了",
-                    "정보 교류 종료"
                 ]
             }
         }
@@ -1076,23 +1044,12 @@
             }
         },
         "pre_delay": 0,
-        "action": {
-            "type": "Click"
-        },
-        "post_wait_freezes": {
-            "time": 100,
-            "target": [
-                0,
-                0,
-                300,
-                100
-            ],
-            "timeout": 1000
-        },
         "post_delay": 0,
         "rate_limit": 0,
         "next": [
-            "ReceptionRoomWaitExchangeKeepAliveBackToControlNexus"
+            "ReceptionRoomClueExchangeWait",
+            "ReceptionRoomWaitExchangeKeepAliveBackToControlNexus",
+            "[JumpBack]SceneExitMenuDijiangFacility"
         ]
     },
     "ReceptionRoomWaitExchangeKeepAliveBackToControlNexus": {
@@ -1116,40 +1073,20 @@
     "ReceptionRoomWaitExchangeKeepAliveReenter": {
         "desc": "[会客室·交流] 长时间等待保活：从总控中枢重新进入会客室",
         "recognition": {
-            "type": "OCR",
+            "type": "And",
             "param": {
-                "roi": [
-                    485,
-                    0,
-                    336,
-                    260
-                ],
-                "expected": [
-                    "^会客室$",
-                    "^會客室$",
-                    "Reception"
+                "all_of": [
+                    "InControlNexus"
                 ]
             }
         },
-        "pre_wait_freezes": 200,
         "pre_delay": 0,
-        "action": {
-            "type": "Click"
-        },
-        "post_wait_freezes": {
-            "time": 100,
-            "target": [
-                0,
-                0,
-                300,
-                100
-            ],
-            "timeout": 1000
-        },
         "post_delay": 0,
         "rate_limit": 0,
         "next": [
-            "ReceptionRoomWaitExchangeKeepAliveReentered"
+            "ReceptionRoomClueExchangeWait",
+            "ReceptionRoomWaitExchangeKeepAliveReentered",
+            "[JumpBack]SceneEnterMenuDijiangReceptionRoom"
         ]
     },
     "ReceptionRoomWaitExchangeKeepAliveReentered": {
@@ -2054,7 +1991,7 @@
         "rate_limit": 0
     },
     "ReceptionRoomExit": {
-        "desc": "[会客室·退出] 识别会客室界面，点击返回退出",
+        "desc": "[会客室·退出] 识别会客室界面，通过 SceneManager 返回控制中枢",
         "recognition": "And",
         "all_of": [
             "InReceptionRoom",
@@ -2062,14 +1999,12 @@
         ],
         "box_index": 1,
         "pre_delay": 0,
-        "action": {
-            "type": "Click"
-        },
         "post_delay": 0,
         "rate_limit": 0,
         "next": [
             "ReceptionRoomClueExchangeWait",
-            "InDijiangControlNexus"
+            "InDijiangControlNexus",
+            "[JumpBack]SceneExitMenuDijiangFacility"
         ]
     }
 }

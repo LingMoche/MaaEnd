@@ -1,38 +1,20 @@
 {
     "MFGCabinMain": {
-        "desc": "[制造舱·主界面] 在控制中枢中识别制造舱主界面特征，进入制造舱主界面",
+        "desc": "[制造舱·主界面] 在控制中枢识别制造舱入口，通过 SceneManager 进入制造舱",
         "recognition": {
             "type": "And",
             "param": {
                 "all_of": [
-                    "MFGCabinTips",
-                    "MFGCabinText"
-                ],
-                "box_index": 1
+                    "InDijiangMFGCabinEntrance"
+                ]
             }
         },
-        "pre_wait_freezes": {
-            "time": 100,
-            "timeout": 1000
-        },
         "pre_delay": 0,
-        "action": {
-            "type": "Click"
-        },
-        "post_wait_freezes": {
-            "time": 200,
-            "target": [
-                0,
-                0,
-                375,
-                578
-            ],
-            "timeout": 1000
-        },
         "post_delay": 0,
         "rate_limit": 0,
         "next": [
-            "MFGCabinViewIn"
+            "MFGCabinViewIn",
+            "[JumpBack]SceneEnterMenuDijiangMFGCabin"
         ]
     },
     "MFGCabinViewIn": {
@@ -406,7 +388,7 @@
         "rate_limit": 0
     },
     "MFGCabinExit": {
-        "desc": "[制造舱·退出] 点击左上制造舱标题返回控制中枢",
+        "desc": "[制造舱·退出] 识别制造舱界面，通过 SceneManager 返回控制中枢",
         "recognition": {
             "type": "And",
             "param": {
@@ -419,22 +401,11 @@
             }
         },
         "pre_delay": 0,
-        "action": {
-            "type": "Custom",
-            "param": {
-                "custom_action": "RepeatUntilFoundAction",
-                "custom_action_param": {
-                    "action": "Click",
-                    "wait_nodes": [
-                        "InDijiangControlNexus"
-                    ]
-                }
-            }
-        },
         "post_delay": 0,
         "rate_limit": 0,
         "next": [
-            "InDijiangControlNexus"
+            "InDijiangControlNexus",
+            "[JumpBack]SceneExitMenuDijiangFacility"
         ]
     }
 }

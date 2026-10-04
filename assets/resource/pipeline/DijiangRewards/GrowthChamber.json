@@ -1,43 +1,21 @@
 {
     "GrowthChamberMain": {
-        "desc": "[培养舱·入口] 在控制中枢点击培养舱区域进入培养舱",
+        "desc": "[培养舱·入口] 在控制中枢识别培养舱入口，通过 SceneManager 进入培养舱",
         "max_hit": 1,
         "recognition": {
-            "type": "OCR",
+            "type": "And",
             "param": {
-                "roi": [
-                    647,
-                    102,
-                    438,
-                    313
-                ],
-                "expected": [
-                    "生长",
-                    "生長",
-                    "(?i)Growth",
-                    "成長",
-                    "^培养舱",
-                    "^培養艙",
-                    "Chamber"
+                "all_of": [
+                    "InDijiangGrowthChamberEntrance"
                 ]
             }
         },
-        "pre_wait_freezes": {
-            "time": 100,
-            "timeout": 1000
-        },
         "pre_delay": 0,
-        "action": {
-            "type": "Click"
-        },
-        "post_wait_freezes": {
-            "time": 100,
-            "timeout": 1000
-        },
         "post_delay": 0,
         "rate_limit": 0,
         "next": [
-            "GrowthChamberViewIn"
+            "GrowthChamberViewIn",
+            "[JumpBack]SceneEnterMenuDijiangGrowthChamber"
         ],
         "focus": {
             "Node.PipelineNode.Failed": "$task.DijiangRewards.focus.growth_chamber_entry_failed"
@@ -900,7 +878,7 @@
         "rate_limit": 0
     },
     "GrowthChamberExit": {
-        "desc": "[培养舱·退出] 点击左上标题返回控制中枢",
+        "desc": "[培养舱·退出] 识别培养舱界面，通过 SceneManager 返回控制中枢",
         "recognition": {
             "type": "And",
             "param": {
@@ -912,11 +890,12 @@
                 "box_index": 2
             }
         },
-        "action": {
-            "type": "Click"
-        },
+        "pre_delay": 0,
+        "post_delay": 0,
+        "rate_limit": 0,
         "next": [
-            "InDijiangControlNexus"
+            "InDijiangControlNexus",
+            "[JumpBack]SceneExitMenuDijiangFacility"
         ]
     },
     "GrowthChamberBackButton": {

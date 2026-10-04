@@ -87,6 +87,23 @@ SceneManager 使用 MaaFramework 的 `[JumpBack]` 机制，将场景接口组织
 | 辅助 | `SceneNoticeRewardsUpgrade` | 权限等阶升级界面，点击空白处关闭 |
 | 辅助 | `SceneWaitLoadingExit` | 等待加载界面消失 |
 
+## 帝江号基建接口
+
+基建任务保留阶段开关、处理次数和领奖、补货、培养等业务；进入总览、进入舱室、返回总览和打开干员派驻页统一调用以下接口。
+
+| 目标 | 跳转接口 | 验证接口 |
+| ---------------- | ----------------------------------------------- | ------------------------------ |
+| 基建总览 | `SceneEnterMenuDijiangControlNexus` | `InControlNexus` |
+| 会客室详情 | `SceneEnterMenuDijiangReceptionRoom` | `InDijiangReceptionRoom` |
+| 有红点提示的制造舱详情 | `SceneEnterMenuDijiangMFGCabin` | `InDijiangMFGCabin` |
+| 培养舱详情 | `SceneEnterMenuDijiangGrowthChamber` | `InDijiangGrowthChamber` |
+| 当前舱室返回总览 | `SceneExitMenuDijiangFacility` | `InControlNexus` |
+| 当前舱室干员派驻页 | `SceneEnterMenuDijiangOperatorAssignment` | `InDijiangOperatorAssignment` |
+
+制造舱入口沿用现有红点定位，业务任务在总览继续扫描下一个有提示的舱室；导航接口不限制执行次数。派驻入口要求当前已在舱室详情页，先用对应入舱接口进入目标舱室。
+
+会客室进入或退出时若出现情报交流结束弹窗，导航只识别弹窗并返回调用方，由基建业务继续确认和领奖。`SceneExitMenuDijiangFacility` 仅处理当前舱室详情或已在总览的状态。`InDijiangOperatorAssignment` 的页面识别包含其筛选和排序弹窗。
+
 ## 帝江号仓库接口
 
 帝江号仓库公共 Pipeline 提供仓库主界面识别、界面进入、地区切换和物品分类切换能力。

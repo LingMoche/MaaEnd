@@ -620,13 +620,79 @@
         ]
     },
     "SceneEnterMenuDijiangControlNexus": {
-        "desc": "从任意界面进入帝江号控制中枢菜单",
+        "desc": "从任意界面进入帝江号基建总览，已在总览时直接返回",
         "pre_delay": 0,
         "post_delay": 0,
         "rate_limit": 0,
         "next": [
+            "InControlNexus",
+            "[JumpBack]SceneExitMenuDijiangFacility",
             "__ScenePrivateWorldEnterMenuControlNexus",
             "[JumpBack]SceneEnterWorldDijiang"
+        ]
+    },
+    "SceneEnterMenuDijiangOperatorAssignment": {
+        "desc": "从当前帝江号舱室详情进入干员派驻选择界面；入舱调用对应 SceneManager 接口，已在派驻页时直接返回",
+        "pre_delay": 0,
+        "post_delay": 0,
+        "rate_limit": 0,
+        "next": [
+            "InDijiangOperatorAssignment",
+            "__ScenePrivateDijiangFacilityEnterOperatorAssignment"
+        ]
+    },
+    "SceneEnterMenuDijiangReceptionRoom": {
+        "desc": "从任意界面进入帝江号会客室，已在目标舱室时直接返回",
+        "pre_delay": 0,
+        "post_delay": 0,
+        "rate_limit": 0,
+        "next": [
+            "__ScenePrivateDijiangReceptionRoomEnterSuccess",
+            "__ScenePrivateDijiangControlNexusEnterReceptionRoom",
+            "[JumpBack]SceneEnterMenuDijiangControlNexus"
+        ]
+    },
+    "SceneEnterMenuDijiangMFGCabin": {
+        "desc": "从任意界面进入帝江号有红点提示的制造舱，已在目标舱室时直接返回",
+        "pre_delay": 0,
+        "post_delay": 0,
+        "rate_limit": 0,
+        "next": [
+            "InDijiangMFGCabin",
+            "__ScenePrivateDijiangControlNexusEnterMFGCabin",
+            "[JumpBack]SceneEnterMenuDijiangControlNexus"
+        ]
+    },
+    "SceneEnterMenuDijiangGrowthChamber": {
+        "desc": "从任意界面进入帝江号培养舱，已在目标舱室时直接返回",
+        "pre_delay": 0,
+        "post_delay": 0,
+        "rate_limit": 0,
+        "next": [
+            "InDijiangGrowthChamber",
+            "__ScenePrivateDijiangControlNexusEnterGrowthChamber",
+            "[JumpBack]SceneEnterMenuDijiangControlNexus"
+        ]
+    },
+    "SceneExitMenuDijiangFacility": {
+        "desc": "从当前帝江号舱室详情返回基建总览；会客室交流结束弹窗阻断时返回调用方处理",
+        "recognition": {
+            "type": "Or",
+            "param": {
+                "any_of": [
+                    "InControlNexus",
+                    "InDijiangReceptionRoom",
+                    "InDijiangMFGCabin",
+                    "InDijiangGrowthChamber"
+                ]
+            }
+        },
+        "pre_delay": 0,
+        "post_delay": 0,
+        "rate_limit": 0,
+        "next": [
+            "InControlNexus",
+            "__ScenePrivateDijiangFacilityExit"
         ]
     }
 }

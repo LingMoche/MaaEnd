@@ -1,6 +1,51 @@
 {
+    "InDijiangOperatorAssignment": {
+        "desc": "在帝江号当前舱室干员派驻选择界面，包含该页面上的筛选或排序弹窗",
+        "recognition": {
+            "type": "And",
+            "param": {
+                "all_of": [
+                    {
+                        "recognition": {
+                            "type": "OCR",
+                            "param": {
+                                "roi": [
+                                    30,
+                                    630,
+                                    180,
+                                    38
+                                ],
+                                "expected": [
+                                    "舱室进驻干员"
+                                ]
+                            }
+                        }
+                    },
+                    {
+                        "recognition": {
+                            "type": "OCR",
+                            "param": {
+                                "roi": [
+                                    915,
+                                    630,
+                                    115,
+                                    38
+                                ],
+                                "expected": [
+                                    "清空选择"
+                                ]
+                            }
+                        }
+                    }
+                ]
+            }
+        },
+        "pre_delay": 0,
+        "post_delay": 0,
+        "rate_limit": 0
+    },
     "InControlNexus": {
-        "desc": "在帝江号总控中枢界面",
+        "desc": "在帝江号基建总览界面",
         "recognition": {
             "type": "TemplateMatch",
             "param": {
@@ -14,6 +59,369 @@
                     "ClaimDijiangRewards/InControlNexus.png"
                 ]
             }
+        },
+        "pre_delay": 0,
+        "post_delay": 0,
+        "rate_limit": 0
+    },
+    "InMFGCabin": {
+        "desc": "[制造舱] 在制造舱界面，识别制造舱标题",
+        "recognition": {
+            "type": "OCR",
+            "param": {
+                "roi": [
+                    43,
+                    0,
+                    167,
+                    64
+                ],
+                "expected": [
+                    "制造舱",
+                    "製造艙",
+                    "MFG ?CABIN"
+                ]
+            }
+        },
+        "pre_wait_freezes": {
+            "time": 100,
+            "target": [
+                0,
+                0,
+                300,
+                100
+            ]
+        },
+        "pre_delay": 0,
+        "post_delay": 0,
+        "rate_limit": 0
+    },
+    "InReceptionRoom": {
+        "desc": "[会客室] 在会客室主界面，没有窗口干扰",
+        "recognition": "And",
+        "all_of": [
+            {
+                "recognition": "OCR",
+                "roi": [
+                    43,
+                    0,
+                    167,
+                    64
+                ],
+                "expected": [
+                    "会客室",
+                    "會客室",
+                    "(?i)Reception\\s*Room",
+                    "応接室"
+                ]
+            },
+            {
+                "recognition": "OCR",
+                "roi": [
+                    1182,
+                    296,
+                    98,
+                    102
+                ],
+                "expected": [
+                    "赠予",
+                    "贈予",
+                    "(?i)Send",
+                    "譲り渡す"
+                ]
+            }
+        ],
+        "pre_wait_freezes": {
+            "time": 100,
+            "target": [
+                -300,
+                0,
+                300,
+                100
+            ]
+        },
+        "pre_delay": 0,
+        "post_delay": 0,
+        "rate_limit": 0
+    },
+    "InGrowthChamber": {
+        "desc": "[培养舱] 在培养舱界面，识别培养舱标题",
+        "recognition": {
+            "type": "OCR",
+            "param": {
+                "roi": [
+                    43,
+                    0,
+                    167,
+                    64
+                ],
+                "expected": [
+                    "培养舱",
+                    "培養艙",
+                    "(?i)Growth\\s*Chamber",
+                    "培養室"
+                ]
+            }
+        },
+        "pre_wait_freezes": {
+            "time": 100,
+            "target": [
+                0,
+                0,
+                300,
+                100
+            ]
+        },
+        "pre_delay": 0,
+        "post_delay": 0,
+        "rate_limit": 0
+    },
+    "InDijiangControlNexus": {
+        "desc": "识别处于帝江号总控中枢界面",
+        "recognition": {
+            "type": "TemplateMatch",
+            "param": {
+                "roi": [
+                    15,
+                    437,
+                    225,
+                    153
+                ],
+                "template": [
+                    "ClaimDijiangRewards/InControlNexus.png"
+                ]
+            }
+        },
+        "pre_wait_freezes": {
+            "time": 100,
+            "target": [
+                0,
+                0,
+                300,
+                100
+            ]
+        },
+        "pre_delay": 0,
+        "post_delay": 0,
+        "rate_limit": 0
+    },
+    "FacilityDetails": {
+        "desc": "[设施详情] 识别设施详情标题",
+        "recognition": {
+            "type": "OCR",
+            "param": {
+                "roi": [
+                    226,
+                    74,
+                    238,
+                    142
+                ],
+                "expected": [
+                    "设施详情",
+                    "設施詳情",
+                    "(?i)Facility\\s*Details",
+                    "船室詳細",
+                    "提升等级"
+                ]
+            }
         }
+    },
+    "MFGCabinText": {
+        "desc": "[制造舱·入口] 识别制造舱入口的文本",
+        "recognition": {
+            "type": "OCR",
+            "param": {
+                "roi": "MFGCabinTips",
+                "roi_offset": [
+                    -193,
+                    -31,
+                    111,
+                    93
+                ],
+                "expected": [
+                    "制造舱"
+                ]
+            }
+        }
+    },
+    "MFGCabinTips": {
+        "desc": "[制造舱·入口] 识别制造舱入口的红点",
+        "recognition": {
+            "type": "ColorMatch",
+            "param": {
+                "roi": [
+                    759,
+                    463,
+                    521,
+                    117
+                ],
+                "method": 40,
+                "lower": [
+                    10,
+                    255,
+                    100
+                ],
+                "upper": [
+                    20,
+                    255,
+                    255
+                ],
+                "connected": true,
+                "count": 40
+            }
+        }
+    },
+    "ReceptionRoomExchangeEnd1": {
+        "desc": "识别会客室情报交流结束弹窗，仅供场景判断，确认与奖励处理由业务负责",
+        "recognition": {
+            "type": "OCR",
+            "param": {
+                "roi": [
+                    400,
+                    0,
+                    500,
+                    250
+                ],
+                "expected": [
+                    "情报交流结束",
+                    "情報交流結束",
+                    "(?i)Clue\\s*Exchange\\s*Ended",
+                    "共有会終了",
+                    "정보 교류 종료"
+                ]
+            }
+        },
+        "pre_delay": 0,
+        "post_delay": 0,
+        "rate_limit": 0
+    },
+    "InDijiangReceptionRoomEntrance": {
+        "desc": "在帝江号基建总览识别会客室入口",
+        "recognition": {
+            "type": "And",
+            "param": {
+                "all_of": [
+                    "InControlNexus",
+                    {
+                        "recognition": {
+                            "type": "OCR",
+                            "param": {
+                                "roi": [
+                                    485,
+                                    0,
+                                    336,
+                                    260
+                                ],
+                                "expected": [
+                                    "会客室",
+                                    "會客室",
+                                    "(?i)Reception\\s*Room",
+                                    "応接室"
+                                ]
+                            }
+                        }
+                    }
+                ],
+                "box_index": 1
+            }
+        },
+        "pre_delay": 0,
+        "post_delay": 0,
+        "rate_limit": 0
+    },
+    "InDijiangMFGCabinEntrance": {
+        "desc": "在帝江号基建总览识别有红点提示的制造舱入口，保留现有基建任务的多舱扫描条件",
+        "recognition": {
+            "type": "And",
+            "param": {
+                "all_of": [
+                    "InControlNexus",
+                    "MFGCabinTips",
+                    "MFGCabinText"
+                ],
+                "box_index": 2
+            }
+        },
+        "pre_delay": 0,
+        "post_delay": 0,
+        "rate_limit": 0
+    },
+    "InDijiangGrowthChamberEntrance": {
+        "desc": "在帝江号基建总览识别培养舱入口",
+        "recognition": {
+            "type": "And",
+            "param": {
+                "all_of": [
+                    "InControlNexus",
+                    {
+                        "recognition": {
+                            "type": "OCR",
+                            "param": {
+                                "roi": [
+                                    647,
+                                    102,
+                                    438,
+                                    313
+                                ],
+                                "expected": [
+                                    "培养舱",
+                                    "培養艙",
+                                    "(?i)Growth\\s*Chamber",
+                                    "培養室"
+                                ]
+                            }
+                        }
+                    }
+                ],
+                "box_index": 1
+            }
+        },
+        "pre_delay": 0,
+        "post_delay": 0,
+        "rate_limit": 0
+    },
+    "InDijiangReceptionRoom": {
+        "desc": "在帝江号会客室详情界面",
+        "recognition": {
+            "type": "And",
+            "param": {
+                "all_of": [
+                    "InReceptionRoom",
+                    "FacilityDetails"
+                ]
+            }
+        },
+        "pre_delay": 0,
+        "post_delay": 0,
+        "rate_limit": 0
+    },
+    "InDijiangMFGCabin": {
+        "desc": "在帝江号制造舱详情界面",
+        "recognition": {
+            "type": "And",
+            "param": {
+                "all_of": [
+                    "InMFGCabin",
+                    "FacilityDetails"
+                ]
+            }
+        },
+        "pre_delay": 0,
+        "post_delay": 0,
+        "rate_limit": 0
+    },
+    "InDijiangGrowthChamber": {
+        "desc": "在帝江号培养舱详情界面",
+        "recognition": {
+            "type": "And",
+            "param": {
+                "all_of": [
+                    "InGrowthChamber",
+                    "FacilityDetails"
+                ]
+            }
+        },
+        "pre_delay": 0,
+        "post_delay": 0,
+        "rate_limit": 0
     }
 }

@@ -1,0 +1,69 @@
+{
+    "configs": {
+        "name": "帝江号干员派驻入口",
+        "resource": "官服",
+        "controller": "Win32"
+    },
+    "cases": [
+        {
+            "image": "帝江号_会客室_干员派驻_筛选.png",
+            "hits": [
+                "InDijiangOperatorAssignment"
+            ]
+        },
+        {
+            "image": "帝江号_会客室_干员派驻_排序.png",
+            "hits": [
+                "InDijiangOperatorAssignment"
+            ]
+        },
+        {
+            "image": "帝江号_总控中枢_干员派驻.png",
+            "hits": [
+                "InDijiangOperatorAssignment"
+            ]
+        },
+        {
+            "image": "帝江号_会客室_舱室详情.png",
+            "hits": [
+                "__ScenePrivateDijiangFacilityEnterOperatorAssignment"
+            ]
+        },
+        {
+            "image": "帝江号_制造舱_干员经验素材_舱室详情.png",
+            "hits": [
+                "__ScenePrivateDijiangFacilityEnterOperatorAssignment"
+            ]
+        },
+        {
+            "image": "帝江号_制造舱_干员经验素材_干员派驻.png",
+            "hits": [
+                "InDijiangOperatorAssignment"
+            ]
+        },
+        {
+            "image": "帝江号_制造舱_武器经验素材_舱室详情.png",
+            "hits": [
+                "__ScenePrivateDijiangFacilityEnterOperatorAssignment"
+            ]
+        },
+        {
+            "image": "帝江号_制造舱_武器经验素材_干员派驻.png",
+            "hits": [
+                "InDijiangOperatorAssignment"
+            ]
+        },
+        {
+            "image": "帝江号_培养舱_舱室详情.png",
+            "hits": [
+                "__ScenePrivateDijiangFacilityEnterOperatorAssignment"
+            ]
+        },
+        {
+            "image": "帝江号_培养舱_干员派驻.png",
+            "hits": [
+                "InDijiangOperatorAssignment"
+            ]
+        }
+    ]
+}

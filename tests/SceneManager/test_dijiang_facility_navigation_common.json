@@ -1,0 +1,35 @@
+{
+    "configs": {
+        "name": "帝江号舱室导航弹窗边界",
+        "resource": "官服",
+        "controller": [
+            "Win32",
+            "ADB"
+        ]
+    },
+    "cases": [
+        {
+            "image": "帝江号_控制中枢_会客室_开展交流.png",
+            "hits": [
+                "InDijiangReceptionRoom",
+                "__ScenePrivateDijiangFacilityExit"
+            ]
+        },
+        {
+            "image": "帝江号_控制中枢_会客室_需要领取.png",
+            "hits": []
+        },
+        {
+            "image": "帝江号_控制中枢_会客室_点击开展交流.png",
+            "hits": []
+        },
+        {
+            "image": "帝江号_控制中枢_制造舱_确认收货.png",
+            "hits": []
+        },
+        {
+            "image": "帝江号_大世界.png",
+            "hits": []
+        }
+    ]
+}

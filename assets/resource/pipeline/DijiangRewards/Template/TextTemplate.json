@@ -396,24 +396,6 @@
             }
         }
     },
-    "MFGCabinText": {
-        "desc": "[制造舱·入口] 识别制造舱入口的文本",
-        "recognition": {
-            "type": "OCR",
-            "param": {
-                "roi": "MFGCabinTips",
-                "roi_offset": [
-                    -193,
-                    -31,
-                    111,
-                    93
-                ],
-                "expected": [
-                    "制造舱"
-                ]
-            }
-        }
-    },
     "GrowthChamberExtractSeedText": {
         "desc": "[培养舱·入口] 识别培养舱提取基核的文本",
         "recognition": {
