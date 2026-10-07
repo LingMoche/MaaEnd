@@ -1,0 +1,30 @@
+{
+    "configs": {
+        "name": "赠送干员礼物：信赖、今日上限与选择提示",
+        "resource": "官服",
+        "controller": "Win32"
+    },
+    "cases": [
+        {
+            "name": "101% 信赖与今日上限，选择提示反例",
+            "image": "帝江号_赠送礼物_今日信赖上限.png",
+            "hits": [
+                "GiftOperatorGiftUI",
+                "GiftOperatorSendCloseGiftUI",
+                "GiftOperatorGiftTrust",
+                "GiftOperatorDailyLimitText"
+            ]
+        },
+        {
+            "name": "101% 信赖与今日上限，选择提示正例",
+            "image": "帝江号_赠送礼物_今日信赖上限_选择提示.png",
+            "hits": [
+                "GiftOperatorGiftUI",
+                "GiftOperatorSendCloseGiftUI",
+                "GiftOperatorGiftTrust",
+                "GiftOperatorDailyLimitText",
+                "GiftOperatorDailyLimitToast"
+            ]
+        }
+    ]
+}

@@ -1,7 +1,7 @@
 # Development Manual - Gift Operator Maintenance Documentation
 
-This document explains the file distribution and two execution routes of `GiftOperator`.  
-This documentation was last updated on June 28, 2026.
+This document explains the files and independent receive and give stages of `GiftOperator`.
+This documentation was last updated on October 7, 2026.
 
 ## File Paths
 
@@ -12,9 +12,12 @@ This documentation was last updated on June 28, 2026.
 | `assets/resource/pipeline/GiftOperator/GiftOperatorMain.json` | Entry, Di Jiang ship location |
 | `assets/resource/pipeline/GiftOperator/GiftOperatorNavigation.json` | Pathfinding and contact point interaction |
 | `assets/resource/pipeline/GiftOperator/GiftOperatorContact.json` | Contact interface operator selection |
-| `assets/resource/pipeline/GiftOperator/GiftOperatorGiftFlow.json` | Gift giving / receiving during dialogue |
+| `assets/resource/pipeline/GiftOperator/GiftOperatorReceiveFlow.json` | Receive-stage selection, collection, and daily five-gift count |
+| `assets/resource/pipeline/GiftOperator/GiftOperatorGiftFlow.json` | Gift giving during dialogue |
+| `agent/go-service/giftoperator/` | Single-recipient recognition and remaining, completed, and excluded recipient records |
+| `tests/GiftOperator/test_gift_ui_status.json` | Gift UI trust, daily-limit, and selection-toast recognition tests |
 | `assets/resource/pipeline/GiftOperator/GiftOperatorBagFull.json` | Bag full handling |
-| `assets/resource/pipeline/GiftOperator/Operator/Operator.json` | Operator identification for receive-only mode |
+| `assets/resource/pipeline/GiftOperator/Operator/Operator.json` | Receive-stage operator identification and name whitelist |
 | `assets/resource/image/GiftOperator/` | Win32 recognition images |
 | `assets/resource_adb/image/GiftOperator/` | ADB recognition images |
 | `assets/resource_adb/pipeline/GiftOperator/` | ADB Pipeline mirror |
@@ -23,44 +26,55 @@ This documentation was last updated on June 28, 2026.
 
 ## Paths to Modify When Adding a New Operator
 
-When adding a new operator, at least the following 6 locations need to be updated synchronously (`<Name>` is the operator identifier, consistent with the template filename and option case name):
+When adding a new operator, at least the following 7 locations need to be updated synchronously (`<Name>` is the operator identifier, consistent with the template filename and option case name):
 
 | # | Path | Description |
 | --- | -------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 1 | `assets/resource/image/GiftOperator/Operators/<Name>.png` | Win32 operator avatar template; must be processed with `tools/gift_operator/fill_gift_operator_green_box.py` before storage |
 | 2 | `assets/resource_adb/image/GiftOperator/Operators/<Name>.png` | ADB operator avatar template; processed similarly |
-| 3 | `assets/tasks/GiftOperator.json` → `SelectOperator` | Add a case to provide selectable operators in the UI and supply operator information for the "Receive Only" route |
-| 4 | `assets/resource/pipeline/GiftOperator/Operator/Operator.json` | OCR recognition and whitelist for each operator in "Receive Only" mode |
-| 5 | `assets/resource/pipeline/GiftOperator/GiftOperatorContact.json` → `GiftOperatorSelectGiftOp.next` | Append `GiftOperatorSelect_<Name>` to the `next` array at the "Receive Only" operator selection node; otherwise, the operator node will not be triggered |
-| 6 | `assets/locales/interface/*.json` → `operator.<Name>` | Operator display name for each language |
+| 3 | `assets/tasks/GiftOperator.json` → `SelectOperator` | Add a recipient case in the UI and configure `GiftOperatorSendCandidate.attach.templates` and the give-stage name whitelist `GiftOperatorName` |
+| 4 | `assets/resource/pipeline/GiftOperator/Operator/Operator.json` | Recognize operator avatars in the receive stage and override the separate name whitelist `GiftOperatorReceiveName` |
+| 5 | `assets/resource/pipeline/GiftOperator/GiftOperatorReceiveFlow.json` → `GiftOperatorSelectGiftOp.next` | Append `GiftOperatorSelect_<Name>` to the receive-stage selection node's `next` array; otherwise, the operator node will not be triggered |
+| 6 | `assets/resource/pipeline/GiftOperator/GiftOperatorGiftFlow.json` → `GiftOperatorSendCandidate.attach.operators` | Append `GiftOperatorSelect_<Name>` so the give-stage candidate recognizer can reuse that operator's avatar and multilingual names |
+| 7 | `assets/locales/interface/*.json` → `operator.<Name>` | Operator display name for each language |
 
-## Route 1: Default (Give + Receive)
+## Route 1: Default (Receive, Then Give)
 
-Corresponds to the "Receive Only" option being disabled. Configurable gift recipient and quantity.
+Corresponds to the "Receive Only" option being disabled. The task entry `GiftOperatorMain` runs `StashBackpackSubTask`, `GiftOperatorReceiveMain`, and `GiftOperatorSendMain` in order through `SubTask`. Giving starts only after collection finishes and uses the configured recipients and quantity.
 
-1. Store bag before starting the task, then enter the Di Jiang ship bridge world.
-2. Navigate to the operator contact point and open the contact interface.
-3. Select operators (must pass [Selection State Verification](#selection-state-verification) after clicking; implementation in `GiftOperatorContact.json`):
-    - **Any**: Switch to trust ascending order, select three consecutive operators (including those at max trust); verify sequence number 1 → 2 → 3 for each click, confirm the call only after all three are selected.
-    - **Specific Operator**: Match the target operator in the list using the avatar template, then verify the selection state before calling.
-4. Confirm the call; if the operator is not in position, use [Preset Orientation and Coordinate Movement Fallback](#after-calling-operator-what-to-do-if-dialogue-button-not-found) (implementation in `GiftOperatorNavigation.json`).
-5. Wait for the operator to appear, enter dialogue.
-6. Handle dialogue based on priority:
-    - Can give gift → Select gift (also pass [Selection State Verification](#selection-state-verification) after selection; implementation in `GiftOperatorGiftFlow.json`), confirm giving, skip dialogue, leave. Operators at max trust can still receive gifts.
-    - Can receive gift → Collect gift, skip dialogue, leave.
-7. Number of gifts given is controlled by the "Gift Quantity" option, default allows multiple consecutive gifts.
+The recipient option `SelectOperator` offers "Any Operator", specific operators, and "Only Give Gifts to Operators Below Max Trust" (`AnyNonMaxTrust`). "Gift Recipient Count" (`GiftOperatorCount`) is a separate positive-integer input, defaulting to `1`; "Gift Count" (`GiftCount`) is the number of gifts per operator. These settings affect only giving and do not change collection of the five daily gifts.
+
+1. Store the bag before starting the task.
+2. Run the separate receive stage to collect the five daily gifts one at a time. If some gifts were already collected that day, finish the stage after scanning and collecting the remaining gifts. See [Route 2](#route-2-receive-only) for the detailed flow.
+3. Once collection finishes and the task confirms a return to the Di Jiang world, start the give stage and reopen the contact interface.
+4. Select exactly one recipient per round (must pass [Selection State Verification](#selection-state-verification) after clicking; implementation in `GiftOperatorContact.json`):
+    - **Any Operator**: Switch to trust ascending order. The candidate recognizer matches the existing 31 operator avatars against the current list and returns one identity that has not been completed or excluded.
+    - **Only Give Gifts to Operators Below Max Trust**: Use the same avatar candidate path and read trust and the daily limit in the gift UI, giving only when trust can still increase. The old multiple-selection nodes no longer filter numeric trust values in the contact list.
+    - **Specific Operator**: `GiftOperatorSendCandidate.attach.templates` contains only that operator's avatar. Once completed or excluded, that identity cannot be selected again. Exhausting the specified recipient ends the stage and reports the uncompleted count, without repeating gifts to meet the requested count.
+5. Confirm the call; if the operator is not in position, use [Preset Orientation and Coordinate Movement Fallback](#after-calling-operator-what-to-do-if-dialogue-button-not-found) (implementation in `GiftOperatorNavigation.json`).
+6. Wait for the operator to appear, enter dialogue, and open the gift UI. All recipient options first read trust and the fixed daily-limit text. If trust is already `200%` or the daily limit is already reached, exclude that identity without reducing the remaining recipient count.
+7. When eligible, select the configured number of gifts per operator (passing [Selection State Verification](#selection-state-verification)), confirm giving, skip dialogue, and leave. After returning to the world, talk to the same operator and reopen the gift UI to verify that trust increased or the daily-limit state changed from available to reached.
+8. Only a successful `observe_after` observation and commit decrements `remaining`, adds the identity to `completed`, and excludes it from future candidates. Continue with another recipient while the count is nonzero. Exhausting available targets ends the stage and reports the uncompleted count, including when the requested count exceeds the available recipients or a specified single recipient is exhausted. `finish` summarizes completed identities, excluded identities, and the remaining count; it returns an incomplete-result error if that count is greater than zero.
+
+Go's `GiftOperatorCandidateRecognition` derives a canonical identity from the avatar template filename and reuses templates and multilingual names from `Operator/Operator.json`. An empty `attach.templates` means all 31 operators; a specified list restricts candidates. `GiftOperatorSessionAction` only maintains remaining recipients, the reserved identity, initial observations, and completed/excluded records. Pipeline handles selection, calling, dialogue, gift clicks, leaving, and reopening the same operator's gift UI.
+
+Success evidence comes from the stable gift UI's trust percentage and fixed text "[今日赠礼可提升的信赖]已达上限，请明天再来吧". The selection toast "[今日赠礼可提升的信赖]已达上限，无法选择更多" only means that further gift preselection is unavailable; it cannot independently establish successful gifting or decrement the recipient count.
+
+Trust is displayed as an integer percentage. Even if the actual value increased slightly, an unchanged displayed percentage and unchanged daily-limit state after reopening the gift UI cannot establish success. Stop the task and retain the uncompleted count in that case, avoiding another gift to the same operator.
+
+Both stages share contact-point navigation and call confirmation, but use separate selection, dialogue, and name-whitelist chains. `GiftOperatorCheckContact.next` dispatches through `[Anchor]GiftOperatorSelectPhase` to receive-stage or give-stage selection; `GiftOperatorConfirmSelect.next` dispatches through `[Anchor]GiftOperatorWaitChatPhase` to `GiftOperatorReceiveWaitChat` or `GiftOperatorWaitChat`. Collection only overrides `GiftOperatorReceiveName`, preserving the give-stage `GiftOperatorName` configured by the recipient option.
 
 ## Route 2: Receive Only
 
-Corresponds to the "Receive Only" option being enabled. No longer actively gives gifts, only receives gifts from operators.
+Corresponds to the "Receive Only" option being enabled. It disables `GiftOperatorSendMain`, so the task ends after collection. Collection is identical to the first stage of the default route and is independent of the configured gift recipients and quantity. The "Accept All Gifts" option has been removed.
 
 1. Similarly, store the bag first, then navigate to the operator contact point.
-2. In the contact list, [identify operators with gift icons](#receive-mode-how-to-correctly-select-the-target-operator) (implementation in `GiftOperatorContact.json` and `Operator/Operator.json`), rather than selecting by trust order or specific operator.
-3. Confirm the call, enter dialogue, prioritize clicking "Accept Gift".
-4. After receiving:
-    - **Accept All Gifts** disabled → Skip dialogue, then leave, task ends.
-    - **Accept All Gifts** enabled → Return to the start of the task, continue finding the next operator with a gift; only leave when no selectable operators remain in the contact interface.
-5. If the bag is full, prompt and end the task.
+2. At the start of each round, `GiftOperatorReceiveListToTop` scrolls in reverse and uses `ListCompleteRecognition` to confirm that the contact list has returned to the top, preventing a saved scroll position from hiding earlier gifts. Then [identify operators with gift icons](#receive-mode-how-to-correctly-select-the-target-operator) (implementation in `GiftOperatorReceiveFlow.json` and `Operator/Operator.json`), rather than selecting by trust order or specific operator.
+3. Confirm the call and enter dialogue. Only click "Accept Gift"; do not enter a giving branch.
+4. After collection, skip dialogue and leave. `GiftOperatorReceiveBackInWorld` must confirm `InDijiangWorld` before `GiftOperatorReceiveContinue` starts another collection round.
+5. `GiftOperatorReceiveContinue.max_hit` is `4`: the initial collection plus four more rounds yields at most five gifts. The count is cleared only at the receive-stage entry, and remains intact when looking for the next gift. This limit represents the five daily gifts rather than failed-operation retries.
+6. If fewer than five gifts remain that day, continue scrolling whenever the current page contains no gifts. `ListCompleteRecognition` confirms that the list no longer changes after scrolling, then the task closes the contact interface. The receive stage ends after confirming a return to the world.
+7. If the bag is full, prompt and end the task.
 
 ## Special Handling
 
@@ -78,9 +92,9 @@ Implementation is in `GiftOperatorContact.json`. After clicking a list row, use 
 
 1. **Tag Highlight Color**: Identify the HSV color block of the selected state in that row (cyan-green label background).
 2. **Sequence Number Text Background**: Use the hit area from the previous step as an anchor, then identify the text background color of the sequence number.
-3. **Sequence Number OCR**: Read `1` / `2` / `3` in the text area, corresponding to the current operator to be selected.
+3. **Sequence Number OCR**: Both receive and give stages now select one operator per round; read sequence number `1` to confirm that the target is queued.
 
-The "Any" route gradually confirms that the first, second, and third operators are all queued; the "Specific Operator" and receive gift routes verify sequence number `1` is correct after clicking the target, then click confirm call.
+The give-stage candidate recognizer reserves one operator identity, then recognizes that identity's avatar again before clicking, avoiding a click box from the previous frame. Every give-stage selection and the receive route verify sequence number `1` after clicking the target, then confirm the call.
 
 #### Gift Interface Gift Selection
 
@@ -94,14 +108,14 @@ When maintaining, if selection state recognition drifts, prioritize checking the
 
 ### Receive Mode: How to Correctly Select the Target Operator
 
-Receive mode cannot rely on OCR of operator names to directly click the list. Instead, it **first finds the gift, then recognizes the avatar, and finally verifies the name**. Logic is distributed in `GiftOperatorContact.json` and `Operator/Operator.json`.
+Receive mode cannot rely on OCR of operator names to directly click the list. Instead, it **first finds the gift, then recognizes the avatar, and finally verifies the name**. Logic is distributed in `GiftOperatorReceiveFlow.json` and `Operator/Operator.json`.
 
 1. **Step 1: Locate the "Row with a Gift"**  
-   In the contact list area, use `Gift.png` template matching to find the gift icon (`green_mask`). After a hit, offset to the left and click to select that operator row.
+   In the contact list area, use `Gift.png` / `Gift_2.png` template matching to find the gift icon (`green_mask`). After a hit, offset to the adjacent click area and select that operator row.
 
 2. **Step 2: Confirm Which Operator**  
    Use the gift icon hit position as an anchor, and in the adjacent area, perform secondary matching of that operator's avatar (`Operators/<Name>.png`, also `green_mask`).  
-   After a successful match, temporarily change the operator name OCR whitelist used in subsequent dialogue stages to this operator's multilingual name.  
+   After a successful match, set the separate receive-stage name OCR whitelist `GiftOperatorReceiveName` to this operator's multilingual name, preserving the give-stage whitelist `GiftOperatorName`.
    This step is written in `Operator/Operator.json`, one entry per operator; must be maintained synchronously when adding new operators.
 
     > **Example**: If `Operators/Gilberta.png` is secondarily matched next to a gift row in the contact list, the whitelist is narrowed to "Gilberta / Gilberta / …" for only that operator. After the call, when waiting for dialogue in the world, it must simultaneously see the dialogue icon and the name OCR hit that whitelist before clicking; if other operators like Pelica or Yvonne appear on the field, the names don't match, **no mis-clicks**.
@@ -115,7 +129,7 @@ Receive mode cannot rely on OCR of operator names to directly click the list. In
 
 Avatar templates must be processed by `fill_gift_operator_green_box.py` (green border + upper-right mask); otherwise, `green_mask` matching is unstable. Win32 and ADB each have their own set of images and must be processed separately.
 
-If no operator with a gift is found on the current screen, the list scrolls up to 2 times; if still not found, it falls into "no selectable operator", which can serve as a round-end condition when "Accept All Gifts" is enabled.
+Each search starts with `GiftOperatorReceiveListToTop` returning to the top, followed by `GiftOperatorReceiveSelect` scanning downward. If no operator with a gift is found on the current screen, `GiftOperatorReceiveSwipe` scrolls the list and waits for it to stabilize before scanning again. `GiftOperatorReceiveListComplete` uses `ListCompleteRecognition` to compare the list before and after scrolling; collection ends once the list no longer changes and the current page has no gifts. `GiftOperatorReceiveRoundEntry` resets `attach.ready` on both `GiftOperatorReceiveListTopComplete` and `GiftOperatorReceiveListComplete` for each new search, preserving the gift count.
 
 ### After Calling Operator: What to Do If Dialogue Button Not Found
 
@@ -138,7 +152,6 @@ Two other similar retries handle click offsets caused by the operator walking ov
 - Dialogue button found but no dialogue entered after clicking → Retry click once in place.
 - Dialogue entered but right-side action buttons not yet appeared → The skip button also self-retries once, then waits for give/receive buttons to appear.
 
-### Differences in Default Mode Operator Selection (Compared to Receive)
+### Give-Stage Operator Selection Differences (Compared to Receive)
 
-The "Any" route doesn't rely on avatars, but instead: switches to trust ascending order → from top to bottom, finds **unselected** rows, and clicks three consecutively.  
-The "Specific Operator" route is similar to receive mode's second step, directly matching in the list using the avatar template, but without needing to first find the gift icon.
+Giving uses one canonical avatar identity as the candidate for each round, without first locating a gift icon; collection still finds a gift icon and then identifies the avatar. All give-stage selections use `GiftOperatorSendCandidate`; specific operators only restrict `attach.templates`. Completed and excluded identities cannot be selected again.

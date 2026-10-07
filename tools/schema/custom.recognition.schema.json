@@ -17,6 +17,8 @@
                 "EssenceGridPendingRecognition",
                 "ExpendableRecognition",
                 "ExpressionRecognition",
+                "GiftOperatorCandidateRecognition",
+                "GiftOperatorGiftStatusRecognition",
                 "ImageCheckNotPassedRecognition",
                 "IconRecognition",
                 "IntelArchiveScanDetailRecognition",

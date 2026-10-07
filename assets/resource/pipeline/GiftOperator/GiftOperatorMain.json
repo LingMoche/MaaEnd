@@ -1,21 +1,21 @@
 {
     "GiftOperatorMain": {
-        "desc": "赠送干员礼物 - 调用入口节点",
+        "desc": "赠送干员礼物：存放背包、收取每日五份礼物、赠送礼物",
         "pre_delay": 0,
         "action": "Custom",
         "custom_action": "SubTask",
         "custom_action_param": {
             "sub": [
-                "StashBackpackSubTask"
+                "StashBackpackSubTask",
+                "GiftOperatorReceiveMain",
+                "GiftOperatorSendMain"
             ]
         },
         "post_delay": 0,
-        "next": [
-            "GiftOperatorEntry"
-        ]
+        "rate_limit": 0
     },
     "GiftOperatorEntry": {
-        "desc": "赠送干员礼物 - 真·入口/重试节点",
+        "desc": "收礼与送礼共用的联络台导航入口",
         "pre_delay": 0,
         "action": "Custom",
         "custom_action": "SubTask",
