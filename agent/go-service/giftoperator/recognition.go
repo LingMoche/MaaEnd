@@ -3,6 +3,7 @@ package giftoperator
 import (
 	"encoding/json"
 	"fmt"
+	"image"
 	"slices"
 	"strconv"
 	"strings"
@@ -49,7 +50,7 @@ func (r *CandidateRecognition) Run(ctx *maa.Context, arg *maa.CustomRecognitionA
 		log.Error().Err(err).Msg("parse gift candidates failed")
 		return nil, false
 	}
-	var best *candidate
+	var candidates []candidate
 	for _, node := range config.Attach.Operators {
 		info, template, err := readCandidate(ctx, node)
 		if err != nil {
@@ -77,18 +78,114 @@ func (r *CandidateRecognition) Run(ctx *maa.Context, arg *maa.CustomRecognitionA
 			continue
 		}
 		info.Box = detail.Box
-		if best == nil || info.Box[1] < best.Box[1] || (info.Box[1] == best.Box[1] && info.Box[0] < best.Box[0]) {
-			best = &info
-		}
+		candidates = append(candidates, info)
+	}
+	best, trust, err := selectGiftCandidate(candidates, func(info candidate) (int, bool, error) {
+		return recognizeCandidateTrust(ctx, arg.Img, info.Box)
+	})
+	if err != nil {
+		log.Error().Err(err).Str("component", "GiftOperatorCandidateRecognition").
+			Msg("recognize candidate trust failed")
+		return nil, false
 	}
 	if best == nil {
 		return nil, false
 	}
+	log.Info().Str("component", "GiftOperatorCandidateRecognition").
+		Str("operator", best.Operator).Int("trust", trust).Interface("box", best.Box).
+		Msg("selected gift recipient")
 	encoded, err := json.Marshal(best)
 	if err != nil {
 		return nil, false
 	}
 	return &maa.CustomRecognitionResult{Box: best.Box, Detail: string(encoded)}, true
+}
+
+// selectGiftCandidate 按卡片的行、列顺序选择信赖未满的干员。
+// 头像模板的顶部会相差几个像素，同排卡片须先按横坐标排序。
+func selectGiftCandidate(candidates []candidate, readTrust func(candidate) (int, bool, error)) (*candidate, int, error) {
+	slices.SortFunc(candidates, func(a, b candidate) int {
+		if a.Box[1] != b.Box[1] {
+			return a.Box[1] - b.Box[1]
+		}
+		return a.Box[0] - b.Box[0]
+	})
+	for start := 0; start < len(candidates); {
+		anchor := candidates[start].Box
+		end := start + 1
+		// 同排头像的垂直重叠至少达到较小头像高度的一半。
+		for end < len(candidates) && candidates[end].Box[1]-anchor[1] < min(anchor[3], candidates[end].Box[3])/2 {
+			end++
+		}
+		slices.SortFunc(candidates[start:end], func(a, b candidate) int { return a.Box[0] - b.Box[0] })
+		start = end
+	}
+	for _, info := range candidates {
+		trust, hit, err := readTrust(info)
+		if err != nil {
+			return nil, 0, fmt.Errorf("read trust for %s: %w", info.Operator, err)
+		}
+		if !hit {
+			log.Warn().Str("component", "GiftOperatorCandidateRecognition").Str("operator", info.Operator).
+				Interface("box", info.Box).Msg("candidate trust could not be confirmed")
+			continue
+		}
+		if trust < 0 || trust > 200 {
+			return nil, 0, fmt.Errorf("invalid candidate trust %d for %s", trust, info.Operator)
+		}
+		if trust == 200 {
+			log.Info().Str("component", "GiftOperatorCandidateRecognition").Str("operator", info.Operator).
+				Int("trust", trust).Msg("excluded recipient with maximum trust")
+			continue
+		}
+		return &info, trust, nil
+	}
+	return nil, 0, nil
+}
+
+type recognitionRunner interface {
+	RunRecognition(string, image.Image, ...any) (*maa.RecognitionDetail, error)
+}
+
+func recognizeCandidateTrust(runner recognitionRunner, img image.Image, box maa.Rect) (int, bool, error) {
+	// 720p 联络卡片的标准头像为 80×72，信赖数字位于其右下方。
+	// ADB 使用较大头像模板，按实际头像尺寸缩放，避免读到相邻卡片。
+	roi := maa.Rect{box[0] + box[2]*30/80, box[1] + box[3]*84/72, box[2] * 40 / 80, box[3] * 18 / 72}
+	if box[2] <= 0 || box[3] <= 0 || roi[2] <= 0 || roi[3] <= 0 ||
+		!image.Rect(roi[0], roi[1], roi[0]+roi[2], roi[1]+roi[3]).In(img.Bounds()) {
+		return 0, false, nil
+	}
+	detail, err := runner.RunRecognition("GiftOperatorTrustValue", img, map[string]any{
+		"GiftOperatorTrustValue": map[string]any{"roi": roi, "roi_offset": maa.Rect{}, "expected": []string{`^[0-9]+[%％]?$`}},
+	})
+	if err != nil {
+		return 0, false, err
+	}
+	if detail == nil || !detail.Hit || detail.Algorithm != "OCR" {
+		return 0, false, nil
+	}
+	var result struct {
+		Best *maa.OCRResult `json:"best"`
+	}
+	if err := json.Unmarshal([]byte(detail.DetailJson), &result); err != nil {
+		return 0, false, err
+	}
+	if result.Best == nil {
+		return 0, false, nil
+	}
+	text := strings.Join(strings.Fields(result.Best.Text), "")
+	text = strings.ReplaceAll(text, "％", "%")
+	text = strings.TrimSuffix(text, "%")
+	for _, digit := range text {
+		if digit < '0' || digit > '9' {
+			return 0, false, nil
+		}
+	}
+	trust, err := strconv.Atoi(text)
+	if err != nil || trust < 0 || trust > 200 {
+		return 0, false, nil
+	}
+	return trust, true, nil
 }
 
 // readCandidate 复用收礼身份节点的模板和五语言姓名，不另建一份干员映射。

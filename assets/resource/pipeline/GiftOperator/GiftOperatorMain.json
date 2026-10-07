@@ -26,8 +26,7 @@
         },
         "post_delay": 0,
         "next": [
-            "GiftOperatorClickContact", // 理论上这样写可以优化掉后面很多兜底逻辑，但是写不动了，就先当是已经到地方了就别再寻路的意思吧
-            // "GiftOperatorInDijiang1",
+            "GiftOperatorClickContact",
             "GiftOperatorInDijiang0",
             "[JumpBack]GiftOperatorGoToDijiang"
         ]
@@ -35,20 +34,16 @@
     "GiftOperatorInDijiang0": {
         "desc": "确认已在帝江号舰桥大世界",
         "recognition": {
-            "type": "Custom",
+            "type": "And",
             "param": {
-                "custom_recognition": "MapLocateAssertLocation",
-                "custom_recognition_param": {
-                    "zone_id": "OMVBase01",
-                    "target": [
-                        155.86,
-                        186.98,
-                        10.14,
-                        9.06
-                    ]
-                }
+                "all_of": [
+                    "InDijiangWorld"
+                ]
             }
         },
+        "pre_delay": 0,
+        "post_delay": 0,
+        "rate_limit": 0,
         "next": [
             "GiftOperatorShiftToRun"
         ]
