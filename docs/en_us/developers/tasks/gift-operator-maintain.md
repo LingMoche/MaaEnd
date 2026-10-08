@@ -1,7 +1,7 @@
 # Development Manual - Gift Operator Maintenance Documentation
 
 This document explains the files and independent receive and give stages of `GiftOperator`.
-This documentation was last updated on October 7, 2026.
+This documentation was last updated on October 8, 2026.
 
 ## File Paths
 
@@ -48,7 +48,7 @@ The recipient option `SelectOperator` offers "Any Operator", specific operators,
 2. Run the separate receive stage to collect the five daily gifts one at a time. If some gifts were already collected that day, finish the stage after scanning and collecting the remaining gifts. See [Route 2](#route-2-receive-only) for the detailed flow.
 3. Once collection finishes and the task confirms a return to the Di Jiang world, start the give stage and reopen the contact interface.
 4. Select exactly one recipient per round (must pass [Selection State Verification](#selection-state-verification) after clicking; implementation in `GiftOperatorContact.json`):
-    - **Any Operator**: Switch to trust ascending order. The candidate recognizer matches the existing 31 operator avatars against the current list and returns one identity that has not been completed or excluded.
+    - **Any Operator**: Switch to trust ascending order. The candidate recognizer uses the existing 31 operator avatars, reads trust separately within each card, and selects an eligible identity in row and column order. Cards with `200%` or unconfirmed trust are skipped, along with identities already completed or excluded.
     - **Only Give Gifts to Operators Below Max Trust**: Use the same avatar candidate path and read trust and the daily limit in the gift UI, giving only when trust can still increase. The old multiple-selection nodes no longer filter numeric trust values in the contact list.
     - **Specific Operator**: `GiftOperatorSendCandidate.attach.templates` contains only that operator's avatar. Once completed or excluded, that identity cannot be selected again. Exhausting the specified recipient ends the stage and reports the uncompleted count, without repeating gifts to meet the requested count.
 5. Confirm the call; if the operator is not in position, use [Preset Orientation and Coordinate Movement Fallback](#after-calling-operator-what-to-do-if-dialogue-button-not-found) (implementation in `GiftOperatorNavigation.json`).
