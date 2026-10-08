@@ -6,5 +6,6 @@ import maa "github.com/MaaXYZ/maa-framework-go/v4"
 func Register() {
 	maa.AgentServerRegisterCustomAction("GiftOperatorSessionAction", &SessionAction{})
 	maa.AgentServerRegisterCustomRecognition("GiftOperatorCandidateRecognition", &CandidateRecognition{})
+	maa.AgentServerRegisterCustomRecognition("GiftOperatorDialogueRecognition", &DialogueRecognition{})
 	maa.AgentServerRegisterCustomRecognition("GiftOperatorGiftStatusRecognition", &StatusRecognition{})
 }

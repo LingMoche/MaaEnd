@@ -446,7 +446,8 @@
         "anchor": {
             "GiftOperatorSelectPhase": "GiftOperatorSendListToTop",
             "GiftOperatorWaitChatPhase": "GiftOperatorWaitChat",
-            "GiftOperatorGiftScreenPhase": "GiftOperatorSendObserveBefore"
+            "GiftOperatorGiftScreenPhase": "GiftOperatorSendObserveBefore",
+            "GiftOperatorGiftExitPhase": "GiftOperatorSendBackInWorld"
         },
         "post_delay": 0,
         "rate_limit": 0,
@@ -529,7 +530,8 @@
             }
         },
         "anchor": {
-            "GiftOperatorGiftScreenPhase": "GiftOperatorSendObserveBefore"
+            "GiftOperatorGiftScreenPhase": "GiftOperatorSendObserveBefore",
+            "GiftOperatorGiftExitPhase": "GiftOperatorSendBackInWorld"
         },
         "post_delay": 0,
         "rate_limit": 0,
@@ -619,7 +621,7 @@
         "rate_limit": 0
     },
     "GiftOperatorSendCandidate": {
-        "desc": "识别可选头像并记录本轮干员身份，尚不扣减人数",
+        "desc": "固定名单或通用信赖标记选择单人，记录身份后再点击",
         "recognition": {
             "type": "Custom",
             "param": {
@@ -675,7 +677,8 @@
                 "GiftOperatorSelect_Typhoeus",
                 "GiftOperatorSelect_Purrchena"
             ],
-            "templates": []
+            "templates": [],
+            "generic": false
         }
     },
     "GiftOperatorSendClickCandidate": {
@@ -701,7 +704,7 @@
         "post_delay": 0,
         "rate_limit": 0,
         "next": [
-            "GiftOperatorSelectSpecifiedOpSuccess"
+            "GiftOperatorSendSelectSuccess"
         ]
     },
     "GiftOperatorSendListComplete": {
@@ -800,6 +803,7 @@
         "post_delay": 0,
         "rate_limit": 0,
         "next": [
+            "GiftOperatorSendWrongRecipient",
             "GiftOperatorSendAlreadyFull",
             "GiftOperatorSendCanGift"
         ]
@@ -957,7 +961,7 @@
         "next": [
             "[JumpBack]GiftOperatorGiftDialog",
             "[JumpBack]GiftOperatorLeave",
-            "GiftOperatorSendBackInWorld"
+            "[Anchor]GiftOperatorGiftExitPhase"
         ]
     },
     "GiftOperatorSendContinue": {
@@ -1100,6 +1104,143 @@
                     // 完整原文：[今日赠礼可提升的信赖]已达上限，请明天再来吧
                     // @i18n-skip
                     "^限，请明天再来吧$"
+                ]
+            }
+        },
+        "pre_delay": 0,
+        "post_delay": 0,
+        "rate_limit": 0
+    },
+    "GiftOperatorSendSelectSuccess": {
+        "desc": "确认本轮只有一位干员被选中",
+        "recognition": {
+            "type": "And",
+            "param": {
+                "all_of": [
+                    "GiftOperatorSelectSpecifiedOpSuccess"
+                ]
+            }
+        },
+        "pre_delay": 0,
+        "post_delay": 0,
+        "rate_limit": 0,
+        "next": [
+            "GiftOperatorSendSetGenericDialoguePhase",
+            "GiftOperatorConfirmSelect"
+        ]
+    },
+    "GiftOperatorSendSetGenericDialoguePhase": {
+        "desc": "未知干员通过现场对话姓名寻找，赠礼界面再核对运行时头像",
+        "enabled": false,
+        "pre_delay": 0,
+        "anchor": {
+            "GiftOperatorWaitChatPhase": "GiftOperatorSendFindDialogue"
+        },
+        "post_delay": 0,
+        "rate_limit": 0,
+        "next": [
+            "GiftOperatorConfirmSelect"
+        ]
+    },
+    "GiftOperatorSendFindDialogue": {
+        "desc": "现场读取可交互干员姓名，跳过本轮误遇及已完成的对象",
+        "recognition": {
+            "type": "Custom",
+            "param": {
+                "custom_recognition": "GiftOperatorDialogueRecognition"
+            }
+        },
+        "pre_delay": 0,
+        "action": {
+            "type": "Custom",
+            "param": {
+                "custom_action": "GiftOperatorSessionAction",
+                "custom_action_param": {
+                    "operation": "identify"
+                }
+            }
+        },
+        "post_delay": 0,
+        "rate_limit": 0,
+        "next": [
+            "GiftOperatorWaitChat"
+        ]
+    },
+    "GiftOperatorSendWrongRecipient": {
+        "desc": "当前头像不是召集对象，只避开这条对话，不排除待送礼候选",
+        "enabled": false,
+        "pre_delay": 0,
+        "action": {
+            "type": "Custom",
+            "param": {
+                "custom_action": "GiftOperatorSessionAction",
+                "custom_action_param": {
+                    "operation": "skip_dialogue"
+                }
+            }
+        },
+        "anchor": {
+            "GiftOperatorGiftExitPhase": "GiftOperatorSendWrongBackInWorld"
+        },
+        "post_delay": 0,
+        "rate_limit": 0,
+        "next": [
+            "GiftOperatorSendCloseGiftUI"
+        ]
+    },
+    "GiftOperatorSendWrongBackInWorld": {
+        "desc": "误遇对象离场后继续寻找本轮目标，保留临时头像与剩余人数",
+        "recognition": {
+            "type": "And",
+            "param": {
+                "all_of": [
+                    "InDijiangWorld"
+                ]
+            }
+        },
+        "pre_delay": 0,
+        "anchor": {
+            "GiftOperatorGiftExitPhase": "GiftOperatorSendBackInWorld"
+        },
+        "post_delay": 0,
+        "rate_limit": 0,
+        "next": [
+            "GiftOperatorSendFindDialogue",
+            "[JumpBack]GiftOperatorMoveAhead",
+            "GiftOperatorMoveFail"
+        ]
+    },
+    "GiftOperatorGiftName": {
+        "desc": "确认赠礼界面后读取任意干员姓名",
+        "recognition": {
+            "type": "And",
+            "param": {
+                "all_of": [
+                    "GiftOperatorGiftUI",
+                    "GiftOperatorGiftNameText"
+                ],
+                "box_index": 1
+            }
+        },
+        "pre_delay": 0,
+        "post_delay": 0,
+        "rate_limit": 0
+    },
+    "GiftOperatorGiftNameText": {
+        "desc": "赠礼界面右上当前干员姓名，现场读取，不使用维护名单",
+        "recognition": {
+            "type": "OCR",
+            "param": {
+                "roi": [
+                    1040,
+                    128,
+                    217,
+                    32
+                ],
+                "expected": [
+                    // 现场读取任意完整干员姓名，无固定原文
+                    // @i18n-skip
+                    ".+"
                 ]
             }
         },

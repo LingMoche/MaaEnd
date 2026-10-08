@@ -3,6 +3,8 @@
 本文说明 `GiftOperator` 的文件分布与收礼、送礼两个独立阶段。
 该文档更新于 2026 年 10 月 8 日。
 
+仅「只向信赖未满的干员送礼」（`AnyNonMaxTrust`）的送礼阶段不依赖已登记的干员头像、姓名表或选项名录。收礼、「任意干员」（`Any`）和指定干员仍使用维护名录。默认任务先收礼；如果未登记干员带有待收礼物，收礼仍可能因无法识别头像而中止，不能将整个任务视为无需维护。
+
 ## 文件路径
 
 | 路径 | 作用 |
@@ -15,7 +17,8 @@
 | `assets/resource/pipeline/GiftOperator/GiftOperatorReceiveFlow.json` | 收礼选人、领取与每日五份计数 |
 | `assets/resource/pipeline/GiftOperator/GiftOperatorGiftFlow.json` | 对话中的送礼 |
 | `agent/go-service/giftoperator/` | 单人候选识别与送礼人数、成功/排除身份记录 |
-| `tests/GiftOperator/test_gift_ui_status.json` | 送礼界面信赖、每日上限与预选提示识别测试 |
+| `tests/GiftOperator/test_gift_ui_status.json` | 送礼界面姓名、信赖、每日上限与预选提示识别测试 |
+| `tests/GiftOperator/test_contact_candidates.json` | 联络界面信赖图标与收礼后原地恢复识别测试 |
 | `assets/resource/pipeline/GiftOperator/GiftOperatorBagFull.json` | 背包已满处理 |
 | `assets/resource/pipeline/GiftOperator/Operator/Operator.json` | 收礼阶段的干员识别与名称白名单 |
 | `assets/resource/image/GiftOperator/` | Win32 识别图片 |
@@ -26,7 +29,7 @@
 
 ## 新增干员时需改的路径
 
-新增一名干员时，至少需同步以下 7 处（`<Name>` 为干员标识，与模板文件名、option case 名保持一致）：
+为收礼、「任意干员」及指定干员提供新干员支持时，至少需同步以下 7 处（`<Name>` 为干员标识，与模板文件名、option case 名保持一致）。`AnyNonMaxTrust` 的送礼阶段不读取这些干员登记；只为该模式支持新干员，无需新增头像模板或姓名条目。
 
 | # | 路径 | 说明 |
 | --- | -------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
@@ -49,20 +52,30 @@
 3. 收礼结束并确认返回帝江号大世界后，启动送礼阶段，再打开干员联络界面。
 4. 每轮只选择一名送礼对象（点击后须经[选中态校验](#选中态校验)确认，实现见 `GiftOperatorContact.json`）：
     - **任意干员**：切换为信赖度升序，候选器以已有的 31 名干员头像识别当前列表中的目标，在每张卡片内单独读取信赖，按行、列顺序选择未满信赖且尚未成功或排除的身份；信赖已为 `200%` 或无法确认时跳过该卡片。
-    - **只向信赖未满的干员送礼**：使用同一头像候选路径，在送礼界面读取信赖与每日上限，确认仍可提升信赖后才赠送；不再使用旧的多人选取节点按列表信赖数字筛选。
+    - **只向信赖未满的干员送礼**：设置 `GiftOperatorSendCandidate.attach.generic` 为 `true`，从通用信赖图标定位卡片，读取卡片信赖，并截取不含信息按钮、边框和信赖文字的头像核心作为运行时模板。只按本次任务的临时头像身份筛选和排除，不读取 `attach.operators`、固定头像或五语言姓名表。
     - **指定干员**：`GiftOperatorSendCandidate.attach.templates` 仅包含该干员头像，候选器只选择该身份。成功送礼或排除后不会重复选择；指定目标耗尽时结束并报告未完成人数，不为填满人数而重复送礼。
 5. 确认呼唤；若干员未到位，按[预设朝向与坐标移动兜底](#召唤干员后找不到对话按钮怎么办)（实现见 `GiftOperatorNavigation.json`）。
 6. 等待干员出现，进入对话并打开送礼界面。所有送礼对象选项均初次读取信赖与固定每日上限文字；信赖已为 `200%` 或今日已满时，排除该身份，不减少待送礼人数。
 7. 可以赠送时，按每人礼物数选择礼物（选中后走[选中态校验](#选中态校验)）、确认赠送、跳过对话并离开。回到大世界后，再与同一干员对话并重开送礼界面，核对信赖确实增加，或每日状态从未满变为已达上限。
 8. 只有 `observe_after` 核对并提交成功，才把 `remaining` 减一、将身份加入 `completed` 并从后续候选中排除。剩余人数不为零时继续下一位；扫描后没有可用目标时结束并报告未完成人数，包括人数大于可用目标数或指定单人已耗尽的情况。`finish` 汇总成功名单、排除名单与剩余人数；剩余人数大于零时返回未完成错误。
 
-Go 的 `GiftOperatorCandidateRecognition` 按头像模板文件名生成固定身份标识，复用 `Operator/Operator.json` 的模板与五语言姓名；`attach.templates` 为空表示使用全部 31 名干员，指定列表则限制候选。`GiftOperatorSessionAction` 只维护待完成人数、候选身份、初次观察、成功和排除记录；Pipeline 负责选人、呼唤、对话、点击送礼、离场与重新打开同一干员的送礼界面。
+Go 的 `GiftOperatorCandidateRecognition` 按 `attach.generic` 区分两条识别路径。`false` 用于「任意干员」及指定干员：按头像模板文件名生成固定身份标识，复用 `Operator/Operator.json` 的头像与五语言姓名；`attach.templates` 为空表示使用已登记干员，指定列表则限制候选。`true` 仅用于 `AnyNonMaxTrust`：使用通用信赖图标、运行时头像和现场姓名。所有其他选项须显式设置 `generic: false`，避免选项覆盖残留。`GiftOperatorSessionAction` 只维护待完成人数、身份、观察与成功/排除记录；所有界面操作和阶段切换仍由 Pipeline 负责。
+
+### 信赖未满模式：运行时身份校验
+
+1. 通过通用 `GiftOperatorTrustIcon` 定位卡片，保存本轮头像核心；点击前重新匹配同一运行时模板，再校验只选中一人。已成功或今日已满的临时头像不会再次入选；信赖排序可能变化，不能用卡片序号排除。
+2. `GiftOperatorSendSetGenericDialoguePhase` 命中后，将呼唤确认使用的对话锚点切换到 `GiftOperatorSendFindDialogue`。`GiftOperatorDialogueRecognition` 现场读取对话提示姓名，避开已处理对象和本轮误遇姓名，再限制 `GiftOperatorName` 后进入对话。
+3. 进入赠礼界面后，先在右上头像区域匹配本轮运行时头像，再通过 `GiftOperatorGiftName` 读取实际姓名。头像通过才绑定赠礼姓名和世界对话姓名、记录初始信赖及每日上限状态。两处姓名可有不同 OCR 拼写，分别保存，不依赖五语言名录。
+4. 如果遇到旁边残留的旧干员，`GiftOperatorSendWrongRecipient` 只记录当前遭遇姓名供本轮避开，然后关闭界面、离开对话并继续寻找本轮目标；保留临时头像和剩余人数，不将待召集对象标为成功或排除。
+5. 提交后再次进入同一干员的赠礼界面，必须重新通过运行时头像及已绑定赠礼姓名校验，再核对信赖或每日上限变化，才能提交成功计数。头像、姓名或成功证据无法确认时保留未完成计数；不得将识别失败当作送礼成功。
+
+新干员通常无需为此送礼模式登记；联络卡片布局、赠礼头像缩放或姓名位置变化仍需维护通用识别。各控制器的布局须分别验证，不能仅按信赖图标大小同比推算头像尺寸。既有今日上限截图用于姓名、信赖和状态识别，不是成功送礼的正例。模拟未知干员时应使用隔离资源副本移除其登记，并单独验证送礼入口，避免前面的名录收礼阶段先行阻断。
 
 成功依据使用稳定送礼界面的信赖百分比和固定文字「[今日赠礼可提升的信赖]已达上限，请明天再来吧」。选礼物时出现的提示「[今日赠礼可提升的信赖]已达上限，无法选择更多」只表示无法继续预选，不能单独作为送礼成功或人数扣减的证据。
 
 信赖百分比显示为整数；即使实际有小幅增长，如果重新进入送礼界面后整数显示未变、每日上限状态也未变化，仍无法确认成功。此时停止任务，保留未完成计数，避免再次向同一干员赠礼。
 
-两个阶段共用联络台导航与呼唤确认，但使用独立的选人、对话与名称白名单。`GiftOperatorCheckContact.next` 经 `[Anchor]GiftOperatorSelectPhase` 分派到收礼或送礼选人；`GiftOperatorConfirmSelect.next` 经 `[Anchor]GiftOperatorWaitChatPhase` 分派到 `GiftOperatorReceiveWaitChat` 或 `GiftOperatorWaitChat`。收礼只覆盖 `GiftOperatorReceiveName`，不会改变送礼选项配置的 `GiftOperatorName`。
+两个阶段共用联络台导航与呼唤确认，但使用独立的选人、对话与名称白名单。`GiftOperatorCheckContact.next` 经 `[Anchor]GiftOperatorSelectPhase` 分派到收礼或送礼选人；`GiftOperatorConfirmSelect.next` 经 `[Anchor]GiftOperatorWaitChatPhase` 分派到收礼的 `GiftOperatorReceiveWaitChat`、固定身份送礼的 `GiftOperatorWaitChat` 或通用送礼的 `GiftOperatorSendFindDialogue`。收礼只覆盖 `GiftOperatorReceiveName`，不会改变送礼选项配置的 `GiftOperatorName`。
 
 ## 路线二：只收礼物
 
@@ -154,4 +167,4 @@ Go 的 `GiftOperatorCandidateRecognition` 按头像模板文件名生成固定�
 
 ### 送礼阶段选人的差异（对比收礼）
 
-送礼每轮以一个干员头像的固定身份为候选，不需要先找礼物图标；收礼仍先找礼物图标，再确认干员头像。所有送礼选项都由 `GiftOperatorSendCandidate` 选人，指定干员仅限制 `attach.templates`；已经成功或排除的身份不会再次入选。
+送礼每轮选择一人，不需要先找礼物图标。`AnyNonMaxTrust` 使用通用信赖图标、运行时头像和现场姓名；「任意干员」与指定干员仍使用固定头像身份，指定干员同时限制 `attach.templates`。收礼仍先找礼物图标，再通过维护名录确认头像和姓名。成功计数只在送礼验证后提交，排除依据为对应模式的身份。

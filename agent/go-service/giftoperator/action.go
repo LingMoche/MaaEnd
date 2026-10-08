@@ -56,50 +56,95 @@ func updateSession(store nodeStore, param sessionActionParam, detail *maa.Recogn
 	}
 	switch param.Operation {
 	case "reserve":
-		var candidate struct {
-			Operator string   `json:"operator"`
-			Names    []string `json:"names"`
-		}
-		if err := decodeCustomDetail(detail, &candidate); err != nil {
+		var info candidate
+		if err := decodeCustomDetail(detail, &info); err != nil {
 			return err
 		}
-		expected := make([]string, 0, len(candidate.Names))
-		for _, name := range candidate.Names {
-			if name = strings.TrimSpace(name); name != "" {
-				expected = append(expected, "^"+regexp.QuoteMeta(name)+"$")
+		if err := s.reserve(info.Operator); err != nil {
+			return err
+		}
+		s.Generic = info.Template != ""
+		if s.Generic {
+			if info.Portrait == "" {
+				return fmt.Errorf("generic candidate image is required")
 			}
-		}
-		if len(expected) == 0 {
-			return fmt.Errorf("candidate operator names are required")
-		}
-		if err := s.reserve(candidate.Operator); err != nil {
+			if len(info.Names) != 0 {
+				return fmt.Errorf("generic candidate must not use configured names")
+			}
+			if _, exists := pendingPortrait(s); !exists {
+				s.Portraits = append(s.Portraits, portraitEntry{Operator: info.Operator, Template: info.Template, Image: info.Portrait})
+			}
+		} else if err := restrictDialogue(store, info.Names); err != nil {
 			return err
 		}
 		if err := store.OverridePipeline(map[string]any{
-			"GiftOperatorName": map[string]any{"expected": expected},
+			"GiftOperatorSendSetGenericDialoguePhase": map[string]any{"enabled": s.Generic},
 		}); err != nil {
-			return fmt.Errorf("restrict dialogue to reserved operator: %w", err)
+			return fmt.Errorf("set dialogue phase: %w", err)
 		}
+	case "identify":
+		if !s.Generic || s.Pending == "" {
+			return fmt.Errorf("no generic recipient is reserved")
+		}
+		var encounter struct {
+			Name string `json:"name"`
+		}
+		if err := decodeCustomDetail(detail, &encounter); err != nil {
+			return err
+		}
+		s.EncounteredName = normalizeName(encounter.Name)
+		if s.EncounteredName == "" || blockedDialogueName(s, s.EncounteredName) {
+			return fmt.Errorf("interaction name is unavailable")
+		}
+		if err := restrictDialogue(store, []string{s.EncounteredName}); err != nil {
+			return err
+		}
+	case "skip_dialogue":
+		if !s.Generic || s.EncounteredName == "" {
+			return fmt.Errorf("unverified interaction name is missing")
+		}
+		if !containsOperator(s.AvoidNames, s.EncounteredName) {
+			s.AvoidNames = append(s.AvoidNames, s.EncounteredName)
+		}
+		s.EncounteredName = ""
+		s.Prepared = false
 	case "observe_before", "observe_after":
-		var status struct {
-			Trust   *int  `json:"trust"`
-			Limited *bool `json:"limited"`
-		}
+		var status giftStatus
 		if err := decodeCustomDetail(detail, &status); err != nil {
 			return err
+		}
+		if s.Generic && !status.IdentityMatch {
+			if param.Operation != "observe_before" {
+				return fmt.Errorf("verification screen belongs to another operator")
+			}
+			s.Prepared = false
+			if err := setGiftEligibility(store, false, false, true); err != nil {
+				return err
+			}
+			break
 		}
 		if status.Trust == nil || status.Limited == nil {
 			return fmt.Errorf("gift status must include trust and limited")
 		}
+		if s.Generic {
+			if err := bindGiftIdentity(&s, status.Name, param.Operation == "observe_before"); err != nil {
+				return err
+			}
+		}
 		if param.Operation == "observe_before" {
+			if s.Generic && processedGiftName(s, status.Name) {
+				s.Prepared = false
+				log.Info().Str("component", "GiftOperatorSessionAction").Str("name", status.Name).Msg("excluded previously processed gift UI name")
+				if err := setGiftEligibility(store, false, true, false); err != nil {
+					return err
+				}
+				break
+			}
 			if err := s.observeBefore(*status.Trust, *status.Limited); err != nil {
 				return err
 			}
-			if err := store.OverridePipeline(map[string]any{
-				"GiftOperatorSendCanGift":     map[string]any{"enabled": s.Prepared},
-				"GiftOperatorSendAlreadyFull": map[string]any{"enabled": !s.Prepared},
-			}); err != nil {
-				return fmt.Errorf("update gift eligibility: %w", err)
+			if err := setGiftEligibility(store, s.Prepared, !s.Prepared, false); err != nil {
+				return err
 			}
 		} else {
 			committed, err := s.commitAfter(*status.Trust, *status.Limited)
@@ -139,4 +184,70 @@ func decodeCustomDetail(detail *maa.RecognitionDetail, target any) error {
 		return fmt.Errorf("parse custom recognition detail: %w", err)
 	}
 	return nil
+}
+
+func restrictDialogue(store nodeStore, names []string) error {
+	expected := make([]string, 0, len(names))
+	for _, name := range names {
+		if name = strings.TrimSpace(name); name != "" {
+			expected = append(expected, "^"+regexp.QuoteMeta(name)+"$")
+		}
+	}
+	if len(expected) == 0 {
+		return fmt.Errorf("candidate operator names are required")
+	}
+	if err := store.OverridePipeline(map[string]any{"GiftOperatorName": map[string]any{"expected": expected}}); err != nil {
+		return fmt.Errorf("restrict dialogue to observed operator: %w", err)
+	}
+	return nil
+}
+
+func setGiftEligibility(store nodeStore, prepared, full, wrong bool) error {
+	return store.OverridePipeline(map[string]any{
+		"GiftOperatorSendCanGift":        map[string]any{"enabled": prepared},
+		"GiftOperatorSendAlreadyFull":    map[string]any{"enabled": full},
+		"GiftOperatorSendWrongRecipient": map[string]any{"enabled": wrong},
+	})
+}
+
+// bindGiftIdentity accepts UI names only after the runtime portrait has matched.
+// Interaction OCR can use a different spelling; retain it separately for dialogue.
+func bindGiftIdentity(s *session, name string, before bool) error {
+	name = normalizeName(name)
+	if name == "" {
+		return fmt.Errorf("gift UI name is required")
+	}
+	for i := range s.Portraits {
+		portrait := &s.Portraits[i]
+		if portrait.Operator != s.Pending {
+			continue
+		}
+		if portrait.Name != "" && portrait.Name != name {
+			return fmt.Errorf("gift UI name changed for the reserved portrait")
+		}
+		if !before && portrait.Name == "" {
+			return fmt.Errorf("initial recipient identity is missing")
+		}
+		if before {
+			if s.EncounteredName == "" {
+				return fmt.Errorf("initial interaction name is missing")
+			}
+			portrait.Name = name
+			portrait.DialogueName = s.EncounteredName
+		}
+		return nil
+	}
+	return fmt.Errorf("reserved runtime portrait is missing")
+}
+
+// processedGiftName prevents a changed portrait match from counting the same person twice.
+func processedGiftName(s session, name string) bool {
+	name = normalizeName(name)
+	for _, portrait := range s.Portraits {
+		if portrait.Operator != s.Pending && normalizeName(portrait.Name) == name &&
+			(containsOperator(s.Completed, portrait.Operator) || containsOperator(s.Excluded, portrait.Operator)) {
+			return true
+		}
+	}
+	return false
 }

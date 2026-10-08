@@ -18,6 +18,7 @@
                 "ExpendableRecognition",
                 "ExpressionRecognition",
                 "GiftOperatorCandidateRecognition",
+                "GiftOperatorDialogueRecognition",
                 "GiftOperatorGiftStatusRecognition",
                 "ImageCheckNotPassedRecognition",
                 "IconRecognition",

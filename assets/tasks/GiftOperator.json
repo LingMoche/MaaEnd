@@ -47,7 +47,8 @@
                         "GiftOperatorSendCandidate": {
                             "enabled": true,
                             "attach": {
-                                "templates": []
+                                "templates": [],
+                                "generic": false
                             }
                         }
                     }
@@ -70,7 +71,8 @@
                         "GiftOperatorSendCandidate": {
                             "enabled": true,
                             "attach": {
-                                "templates": []
+                                "templates": [],
+                                "generic": true
                             }
                         }
                     }
@@ -99,7 +101,8 @@
                             "attach": {
                                 "templates": [
                                     "GiftOperator/Operators/Perlica.png"
-                                ]
+                                ],
+                                "generic": false
                             }
                         }
                     }
@@ -128,7 +131,8 @@
                             "attach": {
                                 "templates": [
                                     "GiftOperator/Operators/Yvonne.png"
-                                ]
+                                ],
+                                "generic": false
                             }
                         }
                     }
@@ -157,7 +161,8 @@
                             "attach": {
                                 "templates": [
                                     "GiftOperator/Operators/Ardelia.png"
-                                ]
+                                ],
+                                "generic": false
                             }
                         }
                     }
@@ -186,7 +191,8 @@
                             "attach": {
                                 "templates": [
                                     "GiftOperator/Operators/Gilberta.png"
-                                ]
+                                ],
+                                "generic": false
                             }
                         }
                     }
@@ -215,7 +221,8 @@
                             "attach": {
                                 "templates": [
                                     "GiftOperator/Operators/ChenQianyu.png"
-                                ]
+                                ],
+                                "generic": false
                             }
                         }
                     }
@@ -244,7 +251,8 @@
                             "attach": {
                                 "templates": [
                                     "GiftOperator/Operators/Wulfgard.png"
-                                ]
+                                ],
+                                "generic": false
                             }
                         }
                     }
@@ -273,7 +281,8 @@
                             "attach": {
                                 "templates": [
                                     "GiftOperator/Operators/Antal.png"
-                                ]
+                                ],
+                                "generic": false
                             }
                         }
                     }
@@ -302,7 +311,8 @@
                             "attach": {
                                 "templates": [
                                     "GiftOperator/Operators/Xaihi.png"
-                                ]
+                                ],
+                                "generic": false
                             }
                         }
                     }
@@ -331,7 +341,8 @@
                             "attach": {
                                 "templates": [
                                     "GiftOperator/Operators/Lifeng.png"
-                                ]
+                                ],
+                                "generic": false
                             }
                         }
                     }
@@ -360,7 +371,8 @@
                             "attach": {
                                 "templates": [
                                     "GiftOperator/Operators/Catcher.png"
-                                ]
+                                ],
+                                "generic": false
                             }
                         }
                     }
@@ -389,7 +401,8 @@
                             "attach": {
                                 "templates": [
                                     "GiftOperator/Operators/Arclight.png"
-                                ]
+                                ],
+                                "generic": false
                             }
                         }
                     }
@@ -418,7 +431,8 @@
                             "attach": {
                                 "templates": [
                                     "GiftOperator/Operators/Avywenna.png"
-                                ]
+                                ],
+                                "generic": false
                             }
                         }
                     }
@@ -447,7 +461,8 @@
                             "attach": {
                                 "templates": [
                                     "GiftOperator/Operators/Laevatain.png"
-                                ]
+                                ],
+                                "generic": false
                             }
                         }
                     }
@@ -476,7 +491,8 @@
                             "attach": {
                                 "templates": [
                                     "GiftOperator/Operators/Alesh.png"
-                                ]
+                                ],
+                                "generic": false
                             }
                         }
                     }
@@ -505,7 +521,8 @@
                             "attach": {
                                 "templates": [
                                     "GiftOperator/Operators/Pogranichnik.png"
-                                ]
+                                ],
+                                "generic": false
                             }
                         }
                     }
@@ -534,7 +551,8 @@
                             "attach": {
                                 "templates": [
                                     "GiftOperator/Operators/LastRite.png"
-                                ]
+                                ],
+                                "generic": false
                             }
                         }
                     }
@@ -563,7 +581,8 @@
                             "attach": {
                                 "templates": [
                                     "GiftOperator/Operators/Ember.png"
-                                ]
+                                ],
+                                "generic": false
                             }
                         }
                     }
@@ -592,7 +611,8 @@
                             "attach": {
                                 "templates": [
                                     "GiftOperator/Operators/Snowshine.png"
-                                ]
+                                ],
+                                "generic": false
                             }
                         }
                     }
@@ -621,7 +641,8 @@
                             "attach": {
                                 "templates": [
                                     "GiftOperator/Operators/DaPan.png"
-                                ]
+                                ],
+                                "generic": false
                             }
                         }
                     }
@@ -650,7 +671,8 @@
                             "attach": {
                                 "templates": [
                                     "GiftOperator/Operators/Fluorite.png"
-                                ]
+                                ],
+                                "generic": false
                             }
                         }
                     }
@@ -679,7 +701,8 @@
                             "attach": {
                                 "templates": [
                                     "GiftOperator/Operators/Akekuri.png"
-                                ]
+                                ],
+                                "generic": false
                             }
                         }
                     }
@@ -708,7 +731,8 @@
                             "attach": {
                                 "templates": [
                                     "GiftOperator/Operators/Estella.png"
-                                ]
+                                ],
+                                "generic": false
                             }
                         }
                     }
@@ -737,7 +761,8 @@
                             "attach": {
                                 "templates": [
                                     "GiftOperator/Operators/Rossi.png"
-                                ]
+                                ],
+                                "generic": false
                             }
                         }
                     }
@@ -766,7 +791,8 @@
                             "attach": {
                                 "templates": [
                                     "GiftOperator/Operators/Tangtang.png"
-                                ]
+                                ],
+                                "generic": false
                             }
                         }
                     }
@@ -795,7 +821,8 @@
                             "attach": {
                                 "templates": [
                                     "GiftOperator/Operators/ZhuangFangyi.png"
-                                ]
+                                ],
+                                "generic": false
                             }
                         }
                     }
@@ -824,7 +851,8 @@
                             "attach": {
                                 "templates": [
                                     "GiftOperator/Operators/MiFu.png"
-                                ]
+                                ],
+                                "generic": false
                             }
                         }
                     }
@@ -853,7 +881,8 @@
                             "attach": {
                                 "templates": [
                                     "GiftOperator/Operators/Camille.png"
-                                ]
+                                ],
+                                "generic": false
                             }
                         }
                     }
@@ -882,7 +911,8 @@
                             "attach": {
                                 "templates": [
                                     "GiftOperator/Operators/Arcane.png"
-                                ]
+                                ],
+                                "generic": false
                             }
                         }
                     }
@@ -911,7 +941,8 @@
                             "attach": {
                                 "templates": [
                                     "GiftOperator/Operators/Liino.png"
-                                ]
+                                ],
+                                "generic": false
                             }
                         }
                     }
@@ -940,7 +971,8 @@
                             "attach": {
                                 "templates": [
                                     "GiftOperator/Operators/Typhoeus.png"
-                                ]
+                                ],
+                                "generic": false
                             }
                         }
                     }
@@ -969,7 +1001,8 @@
                             "attach": {
                                 "templates": [
                                     "GiftOperator/Operators/Purrchena.png"
-                                ]
+                                ],
+                                "generic": false
                             }
                         }
                     }

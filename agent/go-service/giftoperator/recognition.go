@@ -13,15 +13,16 @@ import (
 )
 
 var _ maa.CustomRecognitionRunner = &CandidateRecognition{}
-var _ maa.CustomRecognitionRunner = &StatusRecognition{}
 
-// CandidateRecognition 使用已有头像模板选择尚未成功送礼或排除的干员。
+// CandidateRecognition 根据头像及信赖选择尚未成功送礼或排除的干员。
 // 每次只返回一位干员；记录身份及点击由 Pipeline 的后续节点负责。
 type CandidateRecognition struct{}
 
 type candidate struct {
 	Operator string   `json:"operator"`
-	Names    []string `json:"names"`
+	Names    []string `json:"names,omitempty"`
+	Template string   `json:"template,omitempty"`
+	Portrait string   `json:"portrait,omitempty"`
 	Box      maa.Rect `json:"-"`
 }
 
@@ -44,45 +45,58 @@ func (r *CandidateRecognition) Run(ctx *maa.Context, arg *maa.CustomRecognitionA
 		Attach struct {
 			Operators []string `json:"operators"`
 			Templates []string `json:"templates"`
+			Generic   bool     `json:"generic"`
 		} `json:"attach"`
 	}
 	if err := json.Unmarshal([]byte(raw), &config); err != nil {
 		log.Error().Err(err).Msg("parse gift candidates failed")
 		return nil, false
 	}
-	var candidates []candidate
-	for _, node := range config.Attach.Operators {
-		info, template, err := readCandidate(ctx, node)
-		if err != nil {
-			log.Error().Err(err).Str("node", node).Msg("read gift operator failed")
+	var best *candidate
+	var trust int
+	if config.Attach.Generic {
+		geometry, geometryErr := readPortraitGeometry(ctx)
+		if geometryErr != nil {
+			log.Error().Err(geometryErr).Msg("read gift contact geometry failed")
 			return nil, false
 		}
-		if slices.Contains(s.Completed, info.Operator) || slices.Contains(s.Excluded, info.Operator) {
-			continue
+		best, trust, err = recognizeGenericCandidate(ctx, arg.Img, s, geometry,
+			arg.CurrentTaskName == "GiftOperatorSendClickCandidate")
+	} else {
+		var candidates []candidate
+		for _, node := range config.Attach.Operators {
+			info, template, readErr := readCandidate(ctx, node)
+			if readErr != nil {
+				log.Error().Err(readErr).Str("node", node).Msg("read gift operator failed")
+				return nil, false
+			}
+			if slices.Contains(s.Completed, info.Operator) || slices.Contains(s.Excluded, info.Operator) {
+				continue
+			}
+			if len(config.Attach.Templates) > 0 && !slices.Contains(config.Attach.Templates, template) {
+				continue
+			}
+			// 记录身份后再次识别同一头像，避免使用上一帧的点击框。
+			if arg.CurrentTaskName == "GiftOperatorSendClickCandidate" && info.Operator != s.Pending {
+				continue
+			}
+			detail, matchErr := ctx.RunRecognition("GiftOperatorSelectSpecifiedOp", arg.Img, map[string]any{
+				"GiftOperatorSelectSpecifiedOp": map[string]any{"template": []string{template}},
+			})
+			if matchErr != nil {
+				log.Error().Err(matchErr).Str("operator", info.Operator).Msg("match gift operator failed")
+				return nil, false
+			}
+			if detail == nil || !detail.Hit {
+				continue
+			}
+			info.Box = detail.Box
+			candidates = append(candidates, info)
 		}
-		if len(config.Attach.Templates) > 0 && !slices.Contains(config.Attach.Templates, template) {
-			continue
-		}
-		// 记录身份后再次识别同一头像，避免使用上一帧的点击框。
-		if arg.CurrentTaskName == "GiftOperatorSendClickCandidate" && info.Operator != s.Pending {
-			continue
-		}
-		detail, err := ctx.RunRecognition("GiftOperatorSelectSpecifiedOp", arg.Img, map[string]any{
-			"GiftOperatorSelectSpecifiedOp": map[string]any{"template": []string{template}},
+		best, trust, err = selectGiftCandidate(candidates, func(info candidate) (int, bool, error) {
+			return recognizeCandidateTrust(ctx, arg.Img, info.Box)
 		})
-		if err != nil {
-			log.Error().Err(err).Str("operator", info.Operator).Msg("match gift operator failed")
-			return nil, false
-		}
-		if detail == nil || !detail.Hit {
-			continue
-		}
-		info.Box = detail.Box
-		candidates = append(candidates, info)
 	}
-	best, trust, err := selectGiftCandidate(candidates, func(info candidate) (int, bool, error) {
-		return recognizeCandidateTrust(ctx, arg.Img, info.Box)
-	})
 	if err != nil {
 		log.Error().Err(err).Str("component", "GiftOperatorCandidateRecognition").
 			Msg("recognize candidate trust failed")
@@ -135,7 +149,7 @@ func selectGiftCandidate(candidates []candidate, readTrust func(candidate) (int,
 		}
 		if trust == 200 {
 			log.Info().Str("component", "GiftOperatorCandidateRecognition").Str("operator", info.Operator).
-				Int("trust", trust).Msg("excluded recipient with maximum trust")
+				Int("trust", trust).Interface("box", info.Box).Msg("excluded recipient with maximum trust")
 			continue
 		}
 		return &info, trust, nil
@@ -243,58 +257,4 @@ func readCandidate(store nodeStore, node string) (candidate, string, error) {
 		return candidate{}, "", fmt.Errorf("operator ID missing in %s", node)
 	}
 	return candidate{Operator: id, Names: names}, template, nil
-}
-
-// StatusRecognition 读取稳定送礼界面的信赖百分比及每日上限文字。
-// 选礼物时的临时 toast 不参与成功判定。
-type StatusRecognition struct{}
-
-// Run implements maa.CustomRecognitionRunner.
-func (r *StatusRecognition) Run(ctx *maa.Context, arg *maa.CustomRecognitionArg) (*maa.CustomRecognitionResult, bool) {
-	if ctx == nil || arg == nil || arg.Img == nil {
-		return nil, false
-	}
-	ui, err := ctx.RunRecognition("GiftOperatorGiftUI", arg.Img)
-	if err != nil || ui == nil || !ui.Hit {
-		return nil, false
-	}
-	detail, err := ctx.RunRecognition("GiftOperatorGiftTrust", arg.Img)
-	if err != nil || detail == nil || !detail.Hit || detail.Results == nil || detail.Results.Best == nil {
-		return nil, false
-	}
-	ocr, ok := detail.Results.Best.AsOCR()
-	if !ok {
-		return nil, false
-	}
-	trust, err := parseTrust(ocr.Text)
-	if err != nil {
-		log.Error().Err(err).Str("text", ocr.Text).Msg("parse gift trust failed")
-		return nil, false
-	}
-	limit, err := ctx.RunRecognition("GiftOperatorDailyLimitText", arg.Img)
-	if err != nil {
-		log.Error().Err(err).Msg("recognize daily gift limit failed")
-		return nil, false
-	}
-	encoded, err := json.Marshal(struct {
-		Trust   int  `json:"trust"`
-		Limited bool `json:"limited"`
-	}{trust, limit != nil && limit.Hit})
-	if err != nil {
-		return nil, false
-	}
-	return &maa.CustomRecognitionResult{Box: detail.Box, Detail: string(encoded)}, true
-}
-
-func parseTrust(text string) (int, error) {
-	text = strings.Join(strings.Fields(text), "")
-	text = strings.ReplaceAll(text, "％", "%")
-	if !strings.HasSuffix(text, "%") {
-		return 0, fmt.Errorf("trust has no percent sign")
-	}
-	value, err := strconv.Atoi(strings.TrimSuffix(text, "%"))
-	if err != nil || value < 0 || value > 200 {
-		return 0, fmt.Errorf("invalid trust percentage %q", text)
-	}
-	return value, nil
 }

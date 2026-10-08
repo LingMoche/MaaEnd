@@ -3,6 +3,8 @@
 This document explains the files and independent receive and give stages of `GiftOperator`.
 This documentation was last updated on October 8, 2026.
 
+Only the give stage of "Only Give Gifts to Operators Below Max Trust" (`AnyNonMaxTrust`) is independent of registered operator avatars, name tables, and recipient cases. Collection, "Any Operator" (`Any`), and specific recipients still use the maintained catalog. The default task collects first: an unregistered operator with a collectible gift can still stop collection because its avatar cannot be identified. The complete task is therefore not maintenance-free.
+
 ## File Paths
 
 | Path | Purpose |
@@ -15,7 +17,8 @@ This documentation was last updated on October 8, 2026.
 | `assets/resource/pipeline/GiftOperator/GiftOperatorReceiveFlow.json` | Receive-stage selection, collection, and daily five-gift count |
 | `assets/resource/pipeline/GiftOperator/GiftOperatorGiftFlow.json` | Gift giving during dialogue |
 | `agent/go-service/giftoperator/` | Single-recipient recognition and remaining, completed, and excluded recipient records |
-| `tests/GiftOperator/test_gift_ui_status.json` | Gift UI trust, daily-limit, and selection-toast recognition tests |
+| `tests/GiftOperator/test_gift_ui_status.json` | Gift UI name, trust, daily-limit, and selection-toast recognition tests |
+| `tests/GiftOperator/test_contact_candidates.json` | Contact trust-icon and post-collection world recognition tests |
 | `assets/resource/pipeline/GiftOperator/GiftOperatorBagFull.json` | Bag full handling |
 | `assets/resource/pipeline/GiftOperator/Operator/Operator.json` | Receive-stage operator identification and name whitelist |
 | `assets/resource/image/GiftOperator/` | Win32 recognition images |
@@ -26,7 +29,7 @@ This documentation was last updated on October 8, 2026.
 
 ## Paths to Modify When Adding a New Operator
 
-When adding a new operator, at least the following 7 locations need to be updated synchronously (`<Name>` is the operator identifier, consistent with the template filename and option case name):
+To add a new operator to collection, "Any Operator", or specific-recipient selection, update at least the following 7 locations (`<Name>` is the operator identifier, consistent with the template filename and option case name). The give stage of `AnyNonMaxTrust` does not read these registrations; supporting a new operator only in that mode requires no avatar template or name entry.
 
 | # | Path | Description |
 | --- | -------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -49,20 +52,30 @@ The recipient option `SelectOperator` offers "Any Operator", specific operators,
 3. Once collection finishes and the task confirms a return to the Di Jiang world, start the give stage and reopen the contact interface.
 4. Select exactly one recipient per round (must pass [Selection State Verification](#selection-state-verification) after clicking; implementation in `GiftOperatorContact.json`):
     - **Any Operator**: Switch to trust ascending order. The candidate recognizer uses the existing 31 operator avatars, reads trust separately within each card, and selects an eligible identity in row and column order. Cards with `200%` or unconfirmed trust are skipped, along with identities already completed or excluded.
-    - **Only Give Gifts to Operators Below Max Trust**: Use the same avatar candidate path and read trust and the daily limit in the gift UI, giving only when trust can still increase. The old multiple-selection nodes no longer filter numeric trust values in the contact list.
+    - **Only Give Gifts to Operators Below Max Trust**: Set `GiftOperatorSendCandidate.attach.generic` to `true`. Locate cards through the generic trust icon, read each card's trust, and capture an avatar core excluding the information button, border, and trust text. Selection and exclusion use runtime identities for this task; this path does not read `attach.operators`, fixed avatars, or multilingual name tables.
     - **Specific Operator**: `GiftOperatorSendCandidate.attach.templates` contains only that operator's avatar. Once completed or excluded, that identity cannot be selected again. Exhausting the specified recipient ends the stage and reports the uncompleted count, without repeating gifts to meet the requested count.
 5. Confirm the call; if the operator is not in position, use [Preset Orientation and Coordinate Movement Fallback](#after-calling-operator-what-to-do-if-dialogue-button-not-found) (implementation in `GiftOperatorNavigation.json`).
 6. Wait for the operator to appear, enter dialogue, and open the gift UI. All recipient options first read trust and the fixed daily-limit text. If trust is already `200%` or the daily limit is already reached, exclude that identity without reducing the remaining recipient count.
 7. When eligible, select the configured number of gifts per operator (passing [Selection State Verification](#selection-state-verification)), confirm giving, skip dialogue, and leave. After returning to the world, talk to the same operator and reopen the gift UI to verify that trust increased or the daily-limit state changed from available to reached.
 8. Only a successful `observe_after` observation and commit decrements `remaining`, adds the identity to `completed`, and excludes it from future candidates. Continue with another recipient while the count is nonzero. Exhausting available targets ends the stage and reports the uncompleted count, including when the requested count exceeds the available recipients or a specified single recipient is exhausted. `finish` summarizes completed identities, excluded identities, and the remaining count; it returns an incomplete-result error if that count is greater than zero.
 
-Go's `GiftOperatorCandidateRecognition` derives a canonical identity from the avatar template filename and reuses templates and multilingual names from `Operator/Operator.json`. An empty `attach.templates` means all 31 operators; a specified list restricts candidates. `GiftOperatorSessionAction` only maintains remaining recipients, the reserved identity, initial observations, and completed/excluded records. Pipeline handles selection, calling, dialogue, gift clicks, leaving, and reopening the same operator's gift UI.
+Go's `GiftOperatorCandidateRecognition` selects its recognition path through `attach.generic`. `false` serves "Any Operator" and specific recipients: it derives a canonical identity from the avatar filename and reuses avatars and multilingual names from `Operator/Operator.json`; an empty `attach.templates` selects from registered operators, while a specified list restricts candidates. `true` serves only `AnyNonMaxTrust`, using generic trust icons, runtime portraits, and names read from the current UI. All other recipient cases explicitly set `generic: false` to prevent leftover overrides. `GiftOperatorSessionAction` only maintains remaining recipients, identities, observations, and completed/excluded records; Pipeline still controls every UI action and phase transition.
+
+### Below-Max-Trust Mode: Runtime Identity Verification
+
+1. Locate cards with the generic `GiftOperatorTrustIcon` and save the selected avatar core. Match that runtime template again before clicking, then confirm that exactly one operator is selected. Completed and daily-full portraits cannot be selected again; trust sorting can change, so card indices cannot identify excluded operators.
+2. Once `GiftOperatorSendSetGenericDialoguePhase` is hit, the call-confirmation dialogue anchor points to `GiftOperatorSendFindDialogue`. `GiftOperatorDialogueRecognition` reads visible interaction names, skips processed operators and names encountered incorrectly in this round, then restricts `GiftOperatorName` before entering dialogue.
+3. In the gift UI, match the top-right avatar against the runtime portrait before reading its actual name through `GiftOperatorGiftName`. Only a matched portrait can bind the gift-screen and interaction names and record the initial trust and daily-limit state. The two OCR spellings may differ and are stored separately; neither comes from a multilingual catalog.
+4. If an old nearby operator is encountered, `GiftOperatorSendWrongRecipient` records only that interaction name for avoidance in the current round, closes the gift UI, leaves dialogue, and resumes searching for the reserved operator. It preserves the portrait and remaining count instead of marking the reserved operator completed or excluded.
+5. After submission, reopen the same operator's gift UI and verify the runtime portrait and bound gift-screen name again. Only a confirmed trust or daily-limit change commits success. An unconfirmed portrait, name, or outcome preserves the remaining count; recognition failure is never successful gifting.
+
+New operators normally need no registration for this give mode. Changes to card layout, gift-avatar scaling, or name position still require maintaining generic recognition. Validate each controller layout separately; the trust-icon size alone cannot determine avatar dimensions. Existing daily-limit screenshots cover name, trust, and state recognition, not successful gifting. Simulate an unknown operator in an isolated resource copy with its registration removed and verify the give entry separately, preventing catalog-based collection from stopping the test first.
 
 Success evidence comes from the stable gift UI's trust percentage and fixed text "[今日赠礼可提升的信赖]已达上限，请明天再来吧". The selection toast "[今日赠礼可提升的信赖]已达上限，无法选择更多" only means that further gift preselection is unavailable; it cannot independently establish successful gifting or decrement the recipient count.
 
 Trust is displayed as an integer percentage. Even if the actual value increased slightly, an unchanged displayed percentage and unchanged daily-limit state after reopening the gift UI cannot establish success. Stop the task and retain the uncompleted count in that case, avoiding another gift to the same operator.
 
-Both stages share contact-point navigation and call confirmation, but use separate selection, dialogue, and name-whitelist chains. `GiftOperatorCheckContact.next` dispatches through `[Anchor]GiftOperatorSelectPhase` to receive-stage or give-stage selection; `GiftOperatorConfirmSelect.next` dispatches through `[Anchor]GiftOperatorWaitChatPhase` to `GiftOperatorReceiveWaitChat` or `GiftOperatorWaitChat`. Collection only overrides `GiftOperatorReceiveName`, preserving the give-stage `GiftOperatorName` configured by the recipient option.
+Both stages share contact-point navigation and call confirmation, but use separate selection, dialogue, and name-whitelist chains. `GiftOperatorCheckContact.next` dispatches through `[Anchor]GiftOperatorSelectPhase` to receive-stage or give-stage selection; `GiftOperatorConfirmSelect.next` dispatches through `[Anchor]GiftOperatorWaitChatPhase` to collection's `GiftOperatorReceiveWaitChat`, catalog-based giving's `GiftOperatorWaitChat`, or generic giving's `GiftOperatorSendFindDialogue`. Collection only overrides `GiftOperatorReceiveName`, preserving the give-stage `GiftOperatorName` configured by the recipient option.
 
 ## Route 2: Receive Only
 
@@ -154,4 +167,4 @@ Two other similar retries handle click offsets caused by the operator walking ov
 
 ### Give-Stage Operator Selection Differences (Compared to Receive)
 
-Giving uses one canonical avatar identity as the candidate for each round, without first locating a gift icon; collection still finds a gift icon and then identifies the avatar. All give-stage selections use `GiftOperatorSendCandidate`; specific operators only restrict `attach.templates`. Completed and excluded identities cannot be selected again.
+Giving selects one operator per round without first locating a gift icon. `AnyNonMaxTrust` uses generic trust icons, runtime portraits, and names read from the UI. "Any Operator" and specific recipients still use fixed avatar identities; specific recipients additionally restrict `attach.templates`. Collection still finds the gift icon before identifying the avatar and name through the maintained catalog. Only verified gift results commit success, and each mode excludes operators using its corresponding identity.

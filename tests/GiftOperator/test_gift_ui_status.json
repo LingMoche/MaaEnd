@@ -12,7 +12,8 @@
                 "GiftOperatorGiftUI",
                 "GiftOperatorSendCloseGiftUI",
                 "GiftOperatorGiftTrust",
-                "GiftOperatorDailyLimitText"
+                "GiftOperatorDailyLimitText",
+                "GiftOperatorGiftName"
             ]
         },
         {
@@ -23,8 +24,14 @@
                 "GiftOperatorSendCloseGiftUI",
                 "GiftOperatorGiftTrust",
                 "GiftOperatorDailyLimitText",
-                "GiftOperatorDailyLimitToast"
+                "GiftOperatorDailyLimitToast",
+                "GiftOperatorGiftName"
             ]
+        },
+        {
+            "name": "联络列表反例：赠礼界面姓名、信赖与每日上限均不应命中",
+            "image": "帝江号_干员联络_噗切纳信赖101.png",
+            "hits": []
         }
     ]
 }

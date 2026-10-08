@@ -14,14 +14,28 @@ type nodeStore interface {
 	OverridePipeline(any) error
 }
 
+// portraitEntry links a runtime avatar to names read from the current UI.
+// Neither name nor template comes from the maintained operator catalog.
+type portraitEntry struct {
+	Operator     string `json:"operator"`
+	Template     string `json:"template"`
+	Image        string `json:"image,omitempty"`
+	Name         string `json:"name,omitempty"`
+	DialogueName string `json:"dialogue_name,omitempty"`
+}
+
 type session struct {
-	Remaining     int      `json:"remaining"`
-	Completed     []string `json:"completed"`
-	Excluded      []string `json:"excluded"`
-	Pending       string   `json:"pending"`
-	BeforeTrust   int      `json:"before_trust"`
-	BeforeLimited bool     `json:"before_limited"`
-	Prepared      bool     `json:"prepared"`
+	Generic         bool            `json:"generic"`
+	Portraits       []portraitEntry `json:"portraits,omitempty"`
+	EncounteredName string          `json:"encountered_name,omitempty"`
+	AvoidNames      []string        `json:"avoid_names,omitempty"`
+	Remaining       int             `json:"remaining"`
+	Completed       []string        `json:"completed"`
+	Excluded        []string        `json:"excluded"`
+	Pending         string          `json:"pending"`
+	BeforeTrust     int             `json:"before_trust"`
+	BeforeLimited   bool            `json:"before_limited"`
+	Prepared        bool            `json:"prepared"`
 }
 
 func initSession(store nodeStore, count int) error {
@@ -86,6 +100,9 @@ func (s *session) reserve(operator string) error {
 	if containsOperator(s.Completed, operator) || containsOperator(s.Excluded, operator) {
 		return fmt.Errorf("operator %q has already been completed or excluded", operator)
 	}
+	s.Generic = false
+	s.EncounteredName = ""
+	s.AvoidNames = nil
 	s.Pending = operator
 	s.BeforeTrust = 0
 	s.BeforeLimited = false
