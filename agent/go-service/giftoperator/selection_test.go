@@ -104,11 +104,7 @@ func TestSelectedTextROIExcludesIconAndFrame(t *testing.T) {
 }
 
 func TestGiftStatusPreservesRuntimePortraitAndNameGuard(t *testing.T) {
-	var buffer bytes.Buffer
-	if err := png.Encode(&buffer, image.NewRGBA(image.Rect(0, 0, 56, 48))); err != nil {
-		t.Fatal(err)
-	}
-	s := session{Generic: true, Pending: "portrait-1", Portraits: []portraitEntry{{Operator: "portrait-1", Name: "新干员", Template: "runtime.png", Image: base64.StdEncoding.EncodeToString(buffer.Bytes())}}}
+	s := genericGiftStatusSession(t)
 	for _, test := range []struct {
 		name  string
 		match bool
@@ -121,11 +117,89 @@ func TestGiftStatusPreservesRuntimePortraitAndNameGuard(t *testing.T) {
 	}
 }
 
+func TestGiftStatusReadsCombinedNameWithoutChildHit(t *testing.T) {
+	for _, test := range []struct {
+		name   string
+		verify bool
+	}{{"before", false}, {"after", true}} {
+		t.Run(test.name, func(t *testing.T) {
+			runner := newGiftStatusRunner("高", "118%")
+			status, _, err := readGiftStatus(runner, image.NewRGBA(image.Rect(0, 0, 1280, 720)), genericGiftStatusSession(t), test.verify, false)
+			if err != nil || status == nil || !status.IdentityMatch || status.Name != "新干员" ||
+				status.Trust == nil || *status.Trust != 118 || status.CompletedRings == nil || *status.CompletedRings != 0 {
+				t.Fatalf("native combined name was rejected: status=%+v error=%v", status, err)
+			}
+		})
+	}
+}
+
+func TestGiftSelectionReadsCombinedNameWithoutChildHit(t *testing.T) {
+	runner := newGiftStatusRunner("中", "118%")
+	runner.labels = []maa.Rect{{132, 522, 68, 38}}
+	runner.quantities = map[maa.Rect]string{{163, 522, 37, 20}: "29"}
+	status, _, err := recognizeGiftSelection(runner, image.NewRGBA(image.Rect(0, 0, 1280, 720)), genericGiftStatusSession(t))
+	if err != nil || status == nil || !status.Preview || !status.IdentityMatch || status.Name != "新干员" ||
+		status.SelectedCount == nil || *status.SelectedCount != 29 || status.CompletedRings == nil || *status.CompletedRings != 1 {
+		t.Fatalf("native combined name blocked preview: status=%+v error=%v", status, err)
+	}
+}
+
+func TestGiftStatusRejectsInvalidCombinedName(t *testing.T) {
+	for _, test := range []struct {
+		name   string
+		mutate func(*maa.RecognitionDetail)
+	}{
+		{"parent miss", func(detail *maa.RecognitionDetail) { detail.Hit = false }},
+		{"missing child", func(detail *maa.RecognitionDetail) { detail.CombinedResult[1] = nil }},
+		{"missing best", func(detail *maa.RecognitionDetail) { detail.CombinedResult[1].DetailJson = `{"best":null}` }},
+		{"wrong algorithm", func(detail *maa.RecognitionDetail) { detail.CombinedResult[1].Algorithm = "TemplateMatch" }},
+		{"invalid payload", func(detail *maa.RecognitionDetail) { detail.CombinedResult[1].DetailJson = `invalid` }},
+		{"empty name", func(detail *maa.RecognitionDetail) { detail.CombinedResult[1].DetailJson = ocrDetail(" ").DetailJson }},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			runner := newGiftStatusRunner("高", "118%")
+			runner.nameResult = combinedGiftNameDetail("新干员")
+			test.mutate(runner.nameResult)
+			status, _, err := readGiftStatus(runner, image.NewRGBA(image.Rect(0, 0, 1280, 720)), genericGiftStatusSession(t), false, false)
+			if err != nil || status != nil || runner.readTrust || runner.readTier {
+				t.Fatalf("invalid combined name passed: status=%+v read_trust=%v read_tier=%v error=%v", status, runner.readTrust, runner.readTier, err)
+			}
+		})
+	}
+}
+
+func TestBestOCRTextRejectsStandaloneMiss(t *testing.T) {
+	detail := ocrDetail("118%")
+	detail.Hit = false
+	if text, ok := bestOCRText(detail); ok || text != "" {
+		t.Fatalf("standalone OCR miss was accepted: text=%q hit=%v", text, ok)
+	}
+}
+
+func genericGiftStatusSession(t *testing.T) session {
+	t.Helper()
+	var buffer bytes.Buffer
+	if err := png.Encode(&buffer, image.NewRGBA(image.Rect(0, 0, 56, 48))); err != nil {
+		t.Fatal(err)
+	}
+	return session{Generic: true, Pending: "portrait-1", Prepared: true, Remaining: 1, TargetRings: 3,
+		Portraits: []portraitEntry{{Operator: "portrait-1", Name: "新干员", Template: "runtime.png", Image: base64.StdEncoding.EncodeToString(buffer.Bytes())}}}
+}
+
+// CombinedResult children in maa-framework-go beta.19 do not populate Hit.
+// A successful parent and the child's OCR best result establish the name hit.
+func combinedGiftNameDetail(name string) *maa.RecognitionDetail {
+	child := ocrDetail(name)
+	child.Hit = false
+	return &maa.RecognitionDetail{Hit: true, Algorithm: "And", CombinedResult: []*maa.RecognitionDetail{{Algorithm: "And"}, child}}
+}
+
 type giftStatusRunner struct {
 	tier, trust, name                           string
 	limited, portraitMatch, readTrust, readTier bool
 	labels                                      []maa.Rect
 	quantities                                  map[maa.Rect]string
+	nameResult                                  *maa.RecognitionDetail
 }
 
 func newGiftStatusRunner(tier, trust string) *giftStatusRunner {
@@ -152,7 +226,10 @@ func (r *giftStatusRunner) RunRecognition(entry string, _ image.Image, overrides
 		r.readTier = true
 		return ocrDetail(r.tier), nil
 	case "GiftOperatorGiftName":
-		return &maa.RecognitionDetail{Hit: true, CombinedResult: []*maa.RecognitionDetail{{Hit: true}, ocrDetail(r.name)}}, nil
+		if r.nameResult != nil {
+			return r.nameResult, nil
+		}
+		return combinedGiftNameDetail(r.name), nil
 	case "GiftOperatorGiftSelectedText":
 		if len(overrides) != 1 {
 			return nil, fmt.Errorf("expected explicit numeric ROI")

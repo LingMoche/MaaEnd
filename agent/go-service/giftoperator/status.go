@@ -73,7 +73,8 @@ func readGiftStatus(runner portraitRunner, img image.Image, s session, verify, a
 		if err != nil || name == nil || !name.Hit || len(name.CombinedResult) != 2 {
 			return nil, maa.Rect{}, nil
 		}
-		nameText, ok := bestOCRText(name.CombinedResult[1])
+		// CombinedResult children do not populate Hit; the parent And already succeeded.
+		nameText, ok := ocrResultText(name.CombinedResult[1])
 		if !ok {
 			return nil, maa.Rect{}, nil
 		}
@@ -143,7 +144,15 @@ func readGiftStatus(runner portraitRunner, img image.Image, s session, verify, a
 }
 
 func bestOCRText(detail *maa.RecognitionDetail) (string, bool) {
-	if detail == nil || !detail.Hit || detail.Algorithm != "OCR" {
+	if detail == nil || !detail.Hit {
+		return "", false
+	}
+	return ocrResultText(detail)
+}
+
+// ocrResultText reads the best OCR result after its recognition hit is established.
+func ocrResultText(detail *maa.RecognitionDetail) (string, bool) {
+	if detail == nil || detail.Algorithm != "OCR" {
 		return "", false
 	}
 	var result struct {
