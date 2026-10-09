@@ -555,7 +555,8 @@
         },
         "anchor": {
             "GiftOperatorGiftScreenPhase": "GiftOperatorSendObserveBefore",
-            "GiftOperatorGiftExitPhase": "GiftOperatorSendBackInWorld"
+            "GiftOperatorGiftExitPhase": "GiftOperatorSendBackInWorld",
+            "GiftOperatorSendCandidatePhase": "GiftOperatorSendSelect"
         },
         "post_delay": 0,
         "rate_limit": 0,
@@ -593,7 +594,7 @@
         "post_delay": 0,
         "rate_limit": 0,
         "next": [
-            "GiftOperatorSendSelect"
+            "[Anchor]GiftOperatorSendCandidatePhase"
         ],
         "attach": {
             "ready": false
@@ -1146,6 +1147,9 @@
             }
         },
         "pre_delay": 0,
+        "anchor": {
+            "GiftOperatorSendCandidatePhase": "GiftOperatorSendRecallSelect"
+        },
         "post_delay": 0,
         "rate_limit": 0,
         "next": [
@@ -1229,9 +1233,7 @@
         "post_delay": 0,
         "rate_limit": 0,
         "next": [
-            "GiftOperatorSendFindDialogue",
-            "[JumpBack]GiftOperatorMoveAhead",
-            "GiftOperatorMoveFail"
+            "GiftOperatorFindCalledOperator"
         ]
     },
     "GiftOperatorGiftName": {
@@ -1339,5 +1341,40 @@
         "pre_delay": 0,
         "post_delay": 0,
         "rate_limit": 0
+    },
+    "GiftOperatorSendRecallSelect": {
+        "desc": "传送后重新召集本轮已保留对象，复用 Pending 识别而不重新预留候选",
+        "pre_delay": 0,
+        "post_delay": 0,
+        "rate_limit": 0,
+        "next": [
+            "GiftOperatorSendClickCandidate",
+            "GiftOperatorSendRecallListComplete",
+            "[JumpBack]GiftOperatorSendSwipe"
+        ]
+    },
+    "GiftOperatorSendRecallListComplete": {
+        "desc": "扫描完列表仍未找到本轮待送礼对象，保留会话并报错结束",
+        "recognition": {
+            "type": "Custom",
+            "param": {
+                "custom_recognition": "ListCompleteRecognition",
+                "roi": [
+                    546,
+                    181,
+                    550,
+                    309
+                ]
+            }
+        },
+        "pre_delay": 0,
+        "post_delay": 0,
+        "rate_limit": 0,
+        "next": [
+            "GiftOperatorMoveFail"
+        ],
+        "attach": {
+            "ready": false
+        }
     }
 }

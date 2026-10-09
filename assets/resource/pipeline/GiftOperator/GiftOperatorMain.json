@@ -24,11 +24,14 @@
                 "GiftOperatorClearHitCount"
             ]
         },
+        "anchor": {
+            "GiftOperatorNavigationFailurePhase": "GiftOperatorMoveRetry"
+        },
         "post_delay": 0,
         "next": [
             "GiftOperatorClickContact",
             "GiftOperatorInDijiang0",
-            "[JumpBack]GiftOperatorGoToDijiang"
+            "GiftOperatorGoToDijiang"
         ]
     },
     "GiftOperatorInDijiang0": {
@@ -46,16 +49,31 @@
         "rate_limit": 0,
         "next": [
             "GiftOperatorShiftToRun"
+        ],
+        "on_error": [
+            "[Anchor]GiftOperatorNavigationFailurePhase"
         ]
     },
     "GiftOperatorGoToDijiang": {
         "desc": "前往帝江号舰桥大世界",
-        "max_hit": 5,
         "pre_delay": 0,
+        "action": "Custom",
+        "custom_action": "SubTask",
+        "custom_action_param": {
+            "sub": [
+                "SceneEnterWorldDijiang0"
+            ]
+        },
+        "anchor": {
+            "GiftOperatorNavigationFailurePhase": "GiftOperatorMoveFail"
+        },
         "post_delay": 0,
         "rate_limit": 0,
         "next": [
-            "SceneEnterWorldDijiang0"
+            "GiftOperatorInDijiang0"
+        ],
+        "on_error": [
+            "GiftOperatorMoveFail"
         ]
     },
     "GiftOperatorInDijiang1": {
@@ -133,8 +151,50 @@
                 "GiftOperatorGoAheadContact",
                 "GiftOperatorClickContact",
                 "GiftOperatorSwipe",
-                "GiftOperatorBack"
+                "GiftOperatorBack",
+                "GiftOperatorClickContact_reply"
             ]
+        },
+        "post_delay": 0,
+        "rate_limit": 0
+    },
+    "GiftOperatorResetContactScan": {
+        "desc": "传送恢复只重置联络列表扫描，不清空收礼份数或送礼会话",
+        "pre_delay": 0,
+        "action": {
+            "type": "Custom",
+            "param": {
+                "custom_action": "PipelineOverrideAction",
+                "custom_action_param": {
+                    "patch": {
+                        "GiftOperatorReceiveListComplete": {
+                            "attach": {
+                                "ready": false
+                            }
+                        },
+                        "GiftOperatorReceiveListTopComplete": {
+                            "attach": {
+                                "ready": false
+                            }
+                        },
+                        "GiftOperatorSendListComplete": {
+                            "attach": {
+                                "ready": false
+                            }
+                        },
+                        "GiftOperatorSendListTopComplete": {
+                            "attach": {
+                                "ready": false
+                            }
+                        },
+                        "GiftOperatorSendRecallListComplete": {
+                            "attach": {
+                                "ready": false
+                            }
+                        }
+                    }
+                }
+            }
         },
         "post_delay": 0,
         "rate_limit": 0

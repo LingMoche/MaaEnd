@@ -54,7 +54,7 @@ The recipient option `SelectOperator` offers "Any Operator", specific operators,
     - **Any Operator**: Switch to trust ascending order. The candidate recognizer uses the existing 31 operator avatars, reads trust separately within each card, and selects an eligible identity in row and column order. Cards with `200%` or unconfirmed trust are skipped, along with identities already completed or excluded.
     - **Only Give Gifts to Operators Below Max Trust**: Set `GiftOperatorSendCandidate.attach.generic` to `true`. Locate cards through the generic trust icon, read each card's trust, and capture an avatar core excluding the information button, border, and trust text. Selection and exclusion use runtime identities for this task; this path does not read `attach.operators`, fixed avatars, or multilingual name tables.
     - **Specific Operator**: `GiftOperatorSendCandidate.attach.templates` contains only that operator's avatar. Once completed or excluded, that identity cannot be selected again. Exhausting the specified recipient ends the stage and reports the uncompleted count, without repeating gifts to meet the requested count.
-5. Confirm the call; if the operator is not in position, use [Preset Orientation and Coordinate Movement Fallback](#after-calling-operator-what-to-do-if-dialogue-button-not-found) (implementation in `GiftOperatorNavigation.json`).
+5. Confirm the call; if the operator is not in position, use [Heading Correction and One-Time Teleport Recovery](#after-calling-operator-what-to-do-if-dialogue-button-not-found) (implementation in `GiftOperatorNavigation.json`).
 6. Wait for the operator to appear, enter dialogue, and open the gift UI. All recipient options first read the cumulative filled-ring count, the current ring's high/medium/low progress tier, trust, and the fixed daily-limit text. This daily cumulative progress persists after reopening the gift UI. If the selected ring target is already reached, trust is already `200%`, or the daily limit is already reached, exclude that identity without reducing the remaining recipient count.
 7. When eligible, click one gift at a time, pass [Selection State Verification](#selection-state-verification), and read the preview progress again. Continue selecting while below the target. Stop selecting and confirm giving once the preview reaches the target or caps at three filled rings, the daily limit, or `200%` trust. Skip dialogue and leave, then talk to the same operator and reopen the gift UI to verify the actual cumulative rings and cap state. Preview progress cannot establish success.
 8. Only a successful `observe_after` observation and commit decrements `remaining`, adds the identity to `completed`, and excludes it from future candidates. Continue with another recipient while the count is nonzero. Exhausting available targets ends the stage and reports the uncompleted count, including when the requested count exceeds the available recipients or a specified single recipient is exhausted. `finish` summarizes completed identities, excluded identities, and the remaining count; it returns an incomplete-result error if that count is greater than zero.
@@ -148,19 +148,25 @@ Each search starts with `GiftOperatorReceiveListToTop` returning to the top, fol
 
 ### After Calling Operator: What to Do If Dialogue Button Not Found
 
-After call confirmation, the task first waits for the operator to appear and attempts to click the dialogue entry. If the interactive dialogue button is still not visible on screen, it won't wait indefinitely but enters **Position Correction Fallback**, logic in `GiftOperatorNavigation.json`.
+Before and after calling an operator, the task first recognizes the contact-point or target-operator interaction. If it is absent, the task applies the connected heading corrections and recognizes the interaction again. This logic is in `GiftOperatorNavigation.json`. Each step follows "recognize interaction → correct heading → recognize interaction again"; the former three coordinate-movement groups no longer describe the active flow.
 
-Correction sequence is fixed to three preset groups, each attempted once (the count is reset at the start of the task to avoid residuals from the previous round):
+The current correction order and per-round `max_hit` values are:
 
-| Order | Orientation | Movement Target |
-| ----- | ----------- | --------------- |
-| 1 | West (270°) | (186.6, 175.0) |
-| 2 | North (0°) | (188.0, 175.3) |
-| 3 | East (90°) | (188.6, 176.2) |
+| Order | Node | Heading | `max_hit` |
+| ----- | -------------------------------- | --------------------- | --------- |
+| 1 | `GiftOperatorTurnEast` | East (90°) | 2 |
+| 2 | `GiftOperatorTurnNorthwest` | Northwest (315°) | 1 |
+| 3 | `GiftOperatorTurnNorthByWest` | North by west (345°) | 1 |
+| 4 | `GiftOperatorTurnWest` | West (270°) | 2 |
+| 5 | `GiftOperatorTurnSoutheast` | Southeast (135°) | 2 |
 
-Each group is "turn first → then move a short distance → wait for the character to stop", then re-attempt to find the dialogue button.
+Only heading nodes connected to the current flow participate. Unconnected coordinate-movement nodes remain inactive and do not provide evidence for inventing new movement coordinates.
 
-If all three groups are tried and still not found, the task ends with an error and prompts "Failed to find operator identification", while retaining a screenshot for troubleshooting. Common causes are the operator spawning outside the preset area, or the position after the call deviating too much from the template ROI.
+If the round starts in place or away from the teleport point, a navigation failure or failed positioning before or after the call triggers `SceneEnterWorldDijiang0`, followed by one complete traversal from the teleport point. If the round already started there, or the recovery traversal fails again, terminate through `ERROR` without another teleport.
+
+Each round initializes the navigation recovery anchors and heading-correction counts so that previous recovery state cannot persist. Recovery preserves the collected-gift count and the give-stage session. When giving, call the same operator held in `Pending` again, retaining its identity, remaining count, and processed records; do not `reserve` a new candidate.
+
+Teleport recovery covers only navigation and calling before gift submission. Failure to verify identity, actual ring progress, or success after reopening the gift UI does not enter this recovery path. Stop with the uncompleted count preserved to avoid repeating a delivery.
 
 Two other similar retries handle click offsets caused by the operator walking over:
 

@@ -390,6 +390,9 @@
         "next": [
             "GiftOperatorCheckContact",
             "[JumpBack]GiftOperatorClickContact_reply"
+        ],
+        "on_error": [
+            "[Anchor]GiftOperatorNavigationFailurePhase"
         ]
     },
     "GiftOperatorClickContact_reply": {
@@ -434,10 +437,7 @@
             "param": {}
         },
         "next": [
-            "[Anchor]GiftOperatorWaitChatPhase",
-            "[JumpBack]GiftOperatorMoveAhead",
-            // "GiftOperatorMoveRetry",
-            "GiftOperatorMoveFail"
+            "GiftOperatorFindCalledOperator"
         ]
     },
     "GiftOperatorTrustIcon": {
@@ -660,5 +660,16 @@
                 "key": 83
             }
         }
+    },
+    "GiftOperatorFindCalledOperator": {
+        "desc": "每次站位修正后重新找本轮干员，失败按本轮寻路起点分派",
+        "pre_delay": 0,
+        "post_delay": 0,
+        "rate_limit": 0,
+        "next": [
+            "[Anchor]GiftOperatorWaitChatPhase",
+            "GiftOperatorMoveAhead",
+            "[Anchor]GiftOperatorNavigationFailurePhase"
+        ]
     }
 }
