@@ -67,7 +67,7 @@
         }
     },
     "GiftOperatorClickGift": {
-        "desc": "选择礼物",
+        "desc": "每次只选一件，等待收益预览稳定后重新读取选数和累计环",
         "recognition": {
             "type": "And",
             "param": {
@@ -78,9 +78,22 @@
                 "box_index": 1
             }
         },
+        "pre_delay": 0,
         "action": {
             "type": "Click"
         },
+        "post_wait_freezes": {
+            "time": 200,
+            "target": [
+                1205,
+                267,
+                49,
+                25
+            ],
+            "timeout": 2000
+        },
+        "post_delay": 0,
+        "rate_limit": 0,
         "next": [
             "GiftOperatorDailyLimitToast",
             "GiftOperatorGiftSelected"
@@ -130,13 +143,15 @@
         }
     },
     "GiftOperatorConfirmGift": {
-        "desc": "点击赠送按钮",
+        "desc": "只有黄色确认按钮、完整文字与正数已选礼物均确认后才提交",
         "recognition": {
             "type": "And",
             "param": {
                 "all_of": [
                     "YellowButtonBackground",
-                    "GiftOperatorConfirmGiftText"
+                    "GiftOperatorConfirmGiftText",
+                    "GiftOperatorGiftSelectedLabelColor",
+                    "GiftOperatorGiftSelectedText"
                 ],
                 "box_index": 1
             }
@@ -258,26 +273,29 @@
         }
     },
     "GiftOperatorGiftSelectedText": {
-        "desc": "选中礼物文字",
+        "desc": "选中标签内的完整礼物件数；逐标签求和由选礼识别器处理",
         "recognition": {
             "type": "OCR",
             "param": {
-                "roi": "GiftOperatorGiftSelectedTextColor",
+                "roi": "GiftOperatorGiftSelectedLabelColor",
                 "roi_offset": [
-                    -2,
-                    -2,
-                    4,
-                    4
+                    31,
+                    0,
+                    -31,
+                    -18
                 ],
                 "expected": [
-                    "\\d+"
+                    "^[1-9]\\d*$"
                 ],
                 "only_rec": true
             }
-        }
+        },
+        "pre_delay": 0,
+        "post_delay": 0,
+        "rate_limit": 0
     },
     "GiftOperatorGiftSelected": {
-        "desc": "确认礼物已选中",
+        "desc": "黄色选中标签出现后读取实际选数；不得只凭颜色继续连点",
         "recognition": {
             "type": "And",
             "param": {
@@ -288,8 +306,11 @@
                 ]
             }
         },
+        "pre_delay": 0,
+        "post_delay": 0,
+        "rate_limit": 0,
         "next": [
-            "GiftOperatorConfirmGift"
+            "GiftOperatorSendSelectionProgress"
         ]
     },
     "GiftOperatorGiftUILabelColor": {
@@ -453,7 +474,10 @@
         "rate_limit": 0,
         "next": [
             "GiftOperatorSendRoundEntry"
-        ]
+        ],
+        "attach": {
+            "target_rings": 3
+        }
     },
     "GiftOperatorSendSelect": {
         "desc": "选择未成功送礼且未排除的干员；完整扫描无候选后结束",
@@ -783,7 +807,7 @@
         "rate_limit": 0
     },
     "GiftOperatorSendObserveBefore": {
-        "desc": "进入送礼界面时记录原始信赖与今日上限状态",
+        "desc": "进入送礼界面时记录真实累计环进度，不能把预览当已送礼",
         "recognition": {
             "type": "Custom",
             "param": {
@@ -809,7 +833,7 @@
         ]
     },
     "GiftOperatorSendAlreadyFull": {
-        "desc": "进入时已满信赖或今日赠礼已满，排除该干员但不扣人数",
+        "desc": "进入时已满信赖或达到所选累计环数，排除但不扣送礼人数",
         "enabled": false,
         "pre_delay": 0,
         "action": {
@@ -828,7 +852,7 @@
         ]
     },
     "GiftOperatorSendCanGift": {
-        "desc": "初始状态确认仍可增加信赖，开始选择礼物",
+        "desc": "初始累计环未达目标，开始逐件选礼并核对数量变化",
         "enabled": false,
         "pre_delay": 0,
         "post_delay": 0,
@@ -913,7 +937,7 @@
         ]
     },
     "GiftOperatorSendVerify": {
-        "desc": "重新进入同一干员送礼界面：仅前后状态确认成功才扣人数并排除",
+        "desc": "重新进入同一人界面，真实环进度达到目标且增加才扣人数；总信赖满200也可完成",
         "recognition": {
             "type": "Custom",
             "param": {
@@ -1044,7 +1068,7 @@
         "rate_limit": 0
     },
     "GiftOperatorDailyLimitToast": {
-        "desc": "选礼物时的上限提示，不作为成功证据",
+        "desc": "游戏拒绝继续选礼，提交已有选择；成功仍须送后核验",
         "recognition": {
             "type": "OCR",
             "param": {
@@ -1063,7 +1087,7 @@
         "post_delay": 0,
         "rate_limit": 0,
         "next": [
-            "GiftOperatorGiftSelected"
+            "GiftOperatorConfirmGift"
         ]
     },
     "GiftOperatorDailyLimitFirstLine": {
@@ -1242,6 +1266,74 @@
                     // @i18n-skip
                     ".+"
                 ]
+            }
+        },
+        "pre_delay": 0,
+        "post_delay": 0,
+        "rate_limit": 0
+    },
+    "GiftOperatorSendSelectionProgress": {
+        "desc": "确认总选数已增加，读取预览环并决定继续选礼或提交",
+        "recognition": {
+            "type": "Custom",
+            "param": {
+                "custom_recognition": "GiftOperatorGiftSelectionRecognition"
+            }
+        },
+        "pre_delay": 0,
+        "action": {
+            "type": "Custom",
+            "param": {
+                "custom_action": "GiftOperatorSessionAction",
+                "custom_action_param": {
+                    "operation": "observe_selection"
+                }
+            }
+        },
+        "post_delay": 0,
+        "rate_limit": 0,
+        "next": [
+            "GiftOperatorSendSelectionReady",
+            "GiftOperatorSendSelectionMore"
+        ]
+    },
+    "GiftOperatorSendSelectionReady": {
+        "desc": "预览已达到所选环数或总信赖上限，确认赠送",
+        "enabled": false,
+        "pre_delay": 0,
+        "post_delay": 0,
+        "rate_limit": 0,
+        "next": [
+            "GiftOperatorConfirmGift"
+        ]
+    },
+    "GiftOperatorSendSelectionMore": {
+        "desc": "数量与预览已重新确认，累计环未达目标，选择下一件",
+        "enabled": false,
+        "pre_delay": 0,
+        "post_delay": 0,
+        "rate_limit": 0,
+        "next": [
+            "GiftOperatorClickGift"
+        ]
+    },
+    "GiftOperatorGiftTier": {
+        "desc": "今日赠礼收益档位：高为未满第一环，中为已满一环，低为已满两环",
+        "recognition": {
+            "type": "OCR",
+            "param": {
+                "roi": [
+                    1205,
+                    267,
+                    49,
+                    25
+                ],
+                "expected": [
+                    "高",
+                    "中",
+                    "低"
+                ],
+                "only_rec": true
             }
         },
         "pre_delay": 0,

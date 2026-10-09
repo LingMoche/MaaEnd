@@ -8,20 +8,20 @@ import (
 )
 
 func TestSessionCountsDistinctConfirmedRecipients(t *testing.T) {
-	s := session{Remaining: 2}
+	s := session{TargetRings: 1, Remaining: 2}
 	if err := s.reserve("Perlica"); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.observeBefore(101, false); err != nil {
+	if err := s.observeBefore(101, 0); err != nil {
 		t.Fatal(err)
 	}
-	if changed, err := s.commitAfter(101, false); err == nil || changed || s.Remaining != 2 {
+	if changed, err := s.commitAfter(101, 0); err == nil || changed || s.Remaining != 2 {
 		t.Fatalf("unchanged result consumed recipient: changed=%v error=%v session=%+v", changed, err, s)
 	}
-	if changed, err := s.commitAfter(102, false); err != nil || !changed || s.Remaining != 1 {
-		t.Fatalf("trust increase was not counted: changed=%v error=%v session=%+v", changed, err, s)
+	if changed, err := s.commitAfter(102, 1); err != nil || !changed || s.Remaining != 1 {
+		t.Fatalf("target ring completion was not counted: changed=%v error=%v session=%+v", changed, err, s)
 	}
-	if changed, err := s.commitAfter(102, false); err != nil || changed || s.Remaining != 1 {
+	if changed, err := s.commitAfter(102, 1); err != nil || changed || s.Remaining != 1 {
 		t.Fatalf("duplicate confirmation consumed recipient: changed=%v error=%v session=%+v", changed, err, s)
 	}
 	if err := s.reserve("Perlica"); err == nil {
@@ -30,10 +30,10 @@ func TestSessionCountsDistinctConfirmedRecipients(t *testing.T) {
 	if err := s.reserve("Yvonne"); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.observeBefore(199, false); err != nil {
+	if err := s.observeBefore(199, 0); err != nil {
 		t.Fatal(err)
 	}
-	if changed, err := s.commitAfter(199, true); err != nil || !changed || s.Remaining != 0 {
+	if changed, err := s.commitAfter(199, 3); err != nil || !changed || s.Remaining != 0 {
 		t.Fatalf("new daily limit was not counted: changed=%v error=%v session=%+v", changed, err, s)
 	}
 	if err := s.reserve("ChenQianyu"); err == nil {
@@ -43,17 +43,17 @@ func TestSessionCountsDistinctConfirmedRecipients(t *testing.T) {
 
 func TestAlreadyFullRecipientDoesNotConsumeCount(t *testing.T) {
 	for _, initial := range []struct {
-		trust   int
-		limited bool
-	}{{200, false}, {101, true}} {
-		s := session{Remaining: 1}
+		trust int
+		rings int
+	}{{200, 0}, {101, 3}} {
+		s := session{TargetRings: 3, Remaining: 1}
 		if err := s.reserve("Perlica"); err != nil {
 			t.Fatal(err)
 		}
-		if err := s.observeBefore(initial.trust, initial.limited); err != nil {
+		if err := s.observeBefore(initial.trust, initial.rings); err != nil {
 			t.Fatal(err)
 		}
-		if changed, err := s.commitAfter(200, true); err == nil || changed || s.Remaining != 1 {
+		if changed, err := s.commitAfter(200, 3); err == nil || changed || s.Remaining != 1 {
 			t.Fatalf("already-full recipient counted as success: changed=%v error=%v session=%+v", changed, err, s)
 		}
 		if err := s.reject(); err != nil {
@@ -69,21 +69,21 @@ func TestAlreadyFullRecipientDoesNotConsumeCount(t *testing.T) {
 }
 
 func TestTrustDecreaseDoesNotConfirmGiftDespiteDailyLimit(t *testing.T) {
-	s := session{Remaining: 1}
+	s := session{TargetRings: 3, Remaining: 1}
 	if err := s.reserve("Perlica"); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.observeBefore(101, false); err != nil {
+	if err := s.observeBefore(101, 0); err != nil {
 		t.Fatal(err)
 	}
-	if changed, err := s.commitAfter(100, true); err == nil || changed || s.Remaining != 1 || len(s.Completed) != 0 {
+	if changed, err := s.commitAfter(100, 3); err == nil || changed || s.Remaining != 1 || len(s.Completed) != 0 {
 		t.Fatalf("decreased trust counted as success: changed=%v error=%v session=%+v", changed, err, s)
 	}
 }
 
 func TestSessionFinishRequiresRequestedRecipientCount(t *testing.T) {
 	store := newSessionStore()
-	s := session{Remaining: 2, Completed: []string{"Perlica"}, Excluded: []string{"Yvonne"}}
+	s := session{TargetRings: 3, Remaining: 2, Completed: []string{"Perlica"}, Excluded: []string{"Yvonne"}}
 	if err := saveSession(store, s); err != nil {
 		t.Fatal(err)
 	}
@@ -113,7 +113,7 @@ func TestSessionInitResetsOnlyCurrentContext(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	finished := session{Completed: []string{"Perlica"}, Excluded: []string{"Yvonne"}, Pending: "Perlica"}
+	finished := session{TargetRings: 3, Completed: []string{"Perlica"}, Excluded: []string{"Yvonne"}, Pending: "Perlica"}
 	if err := saveSession(first, finished); err != nil {
 		t.Fatal(err)
 	}

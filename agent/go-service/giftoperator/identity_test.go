@@ -6,7 +6,7 @@ import (
 )
 
 func TestUnknownRecipientRequiresVerifiedIdentityBeforeCounting(t *testing.T) {
-	s := session{Remaining: 2, Generic: true, Pending: "portrait-1", EncounteredName: "现场对话名",
+	s := session{TargetRings: 3, Remaining: 2, Generic: true, Pending: "portrait-1", EncounteredName: "现场对话名",
 		Portraits: []portraitEntry{{Operator: "portrait-1", Template: "runtime.png"}}}
 	if err := bindGiftIdentity(&s, " 未登记新干员 ", false); err == nil {
 		t.Fatal("verification accepted a recipient without an initial identity")
@@ -17,7 +17,7 @@ func TestUnknownRecipientRequiresVerifiedIdentityBeforeCounting(t *testing.T) {
 	if s.Portraits[0].Name != "未登记新干员" || s.Portraits[0].DialogueName != "现场对话名" {
 		t.Fatalf("live identity was not retained: %+v", s.Portraits[0])
 	}
-	if err := s.observeBefore(101, false); err != nil {
+	if err := s.observeBefore(101, 0); err != nil {
 		t.Fatal(err)
 	}
 	before := s
@@ -30,7 +30,7 @@ func TestUnknownRecipientRequiresVerifiedIdentityBeforeCounting(t *testing.T) {
 	if err := bindGiftIdentity(&s, "未登记新干员", false); err != nil {
 		t.Fatal(err)
 	}
-	if ok, err := s.commitAfter(110, true); err != nil || !ok || s.Remaining != 1 {
+	if ok, err := s.commitAfter(110, 3); err != nil || !ok || s.Remaining != 1 {
 		t.Fatalf("unknown verified recipient was not counted: success=%v err=%v state=%+v", ok, err, s)
 	}
 	if !blockedDialogueName(s, "现场对话名") || !blockedDialogueName(s, "未登记新干员") {
@@ -42,7 +42,7 @@ func TestUnknownRecipientRequiresVerifiedIdentityBeforeCounting(t *testing.T) {
 }
 
 func TestWrongDialogueDoesNotExcludeReservedPortrait(t *testing.T) {
-	s := session{Remaining: 2, Generic: true, Pending: "portrait-2", AvoidNames: []string{"旧干员"},
+	s := session{TargetRings: 3, Remaining: 2, Generic: true, Pending: "portrait-2", AvoidNames: []string{"旧干员"},
 		Portraits: []portraitEntry{{Operator: "portrait-1", Name: "已送礼干员", DialogueName: "已送礼对话名"},
 			{Operator: "portrait-2", Template: "runtime.png"}}, Completed: []string{"portrait-1"}}
 	for _, name := range []string{"旧干员", "已送礼干员", "已送礼对话名"} {
@@ -68,12 +68,12 @@ func TestWrongDialogueDoesNotExcludeReservedPortrait(t *testing.T) {
 }
 
 func TestUnknownAlreadyFullRecipientIsExcludedWithoutCounting(t *testing.T) {
-	s := session{Remaining: 1, Generic: true, Pending: "portrait-1", EncounteredName: "新干员对话",
+	s := session{TargetRings: 3, Remaining: 1, Generic: true, Pending: "portrait-1", EncounteredName: "新干员对话",
 		Portraits: []portraitEntry{{Operator: "portrait-1", Template: "runtime.png"}}}
 	if err := bindGiftIdentity(&s, "新干员", true); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.observeBefore(101, true); err != nil {
+	if err := s.observeBefore(101, 3); err != nil {
 		t.Fatal(err)
 	}
 	if err := s.reject(); err != nil {
@@ -88,7 +88,7 @@ func TestUnknownAlreadyFullRecipientIsExcludedWithoutCounting(t *testing.T) {
 }
 
 func TestLiveGiftNameDeduplicatesChangedPortraitIdentity(t *testing.T) {
-	s := session{Remaining: 1, Pending: "portrait-2", Completed: []string{"portrait-1"},
+	s := session{TargetRings: 3, Remaining: 1, Pending: "portrait-2", Completed: []string{"portrait-1"},
 		Portraits: []portraitEntry{{Operator: "portrait-1", Name: "新干员"}, {Operator: "portrait-2", Template: "new-crop.png"}}}
 	if !processedGiftName(s, " 新干员 ") {
 		t.Fatal("already-completed UI name was treated as a new person")

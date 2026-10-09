@@ -8,4 +8,5 @@ func Register() {
 	maa.AgentServerRegisterCustomRecognition("GiftOperatorCandidateRecognition", &CandidateRecognition{})
 	maa.AgentServerRegisterCustomRecognition("GiftOperatorDialogueRecognition", &DialogueRecognition{})
 	maa.AgentServerRegisterCustomRecognition("GiftOperatorGiftStatusRecognition", &StatusRecognition{})
+	maa.AgentServerRegisterCustomRecognition("GiftOperatorGiftSelectionRecognition", &SelectionRecognition{})
 }

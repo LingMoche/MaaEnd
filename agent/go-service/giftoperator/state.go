@@ -29,6 +29,9 @@ type session struct {
 	Portraits       []portraitEntry `json:"portraits,omitempty"`
 	EncounteredName string          `json:"encountered_name,omitempty"`
 	AvoidNames      []string        `json:"avoid_names,omitempty"`
+	TargetRings     int             `json:"target_rings"`
+	BeforeRings     int             `json:"before_rings"`
+	SelectedCount   int             `json:"selected_count"`
 	Remaining       int             `json:"remaining"`
 	Completed       []string        `json:"completed"`
 	Excluded        []string        `json:"excluded"`
@@ -42,7 +45,29 @@ func initSession(store nodeStore, count int) error {
 	if count <= 0 {
 		return fmt.Errorf("count must be a positive integer")
 	}
-	return saveSession(store, session{Remaining: count, Completed: []string{}, Excluded: []string{}})
+	raw, err := store.GetNodeJSON(sessionNode)
+	if err != nil {
+		return fmt.Errorf("read gift ring target: %w", err)
+	}
+	var config struct {
+		Attach struct {
+			TargetRings *int `json:"target_rings"`
+		} `json:"attach"`
+	}
+	if err := json.Unmarshal([]byte(raw), &config); err != nil {
+		return fmt.Errorf("parse gift ring target: %w", err)
+	}
+	target := 3
+	if config.Attach.TargetRings != nil {
+		target = *config.Attach.TargetRings
+	}
+	if target < 1 || target > 3 {
+		return fmt.Errorf("target_rings must be between 1 and 3")
+	}
+	if err := setSelectionReadiness(store, false, false); err != nil {
+		return err
+	}
+	return saveSession(store, session{TargetRings: target, Remaining: count, Completed: []string{}, Excluded: []string{}})
 }
 
 func loadSession(store nodeStore) (session, error) {
@@ -62,7 +87,8 @@ func loadSession(store nodeStore) (session, error) {
 		return session{}, fmt.Errorf("gift session has not been initialized")
 	}
 	s := *node.Attach.Session
-	if s.Remaining < 0 || s.BeforeTrust < 0 || s.BeforeTrust > 200 {
+	if s.Remaining < 0 || s.BeforeTrust < 0 || s.BeforeTrust > 200 ||
+		s.TargetRings < 1 || s.TargetRings > 3 || s.BeforeRings < 0 || s.BeforeRings > 3 || s.SelectedCount < 0 {
 		return session{}, fmt.Errorf("invalid gift session values")
 	}
 	return s, nil
@@ -106,28 +132,35 @@ func (s *session) reserve(operator string) error {
 	s.Pending = operator
 	s.BeforeTrust = 0
 	s.BeforeLimited = false
+	s.BeforeRings = 0
+	s.SelectedCount = 0
 	s.Prepared = false
 	return nil
 }
 
-func (s *session) observeBefore(trust int, limited bool) error {
+func (s *session) observeBefore(trust, rings int) error {
 	if s.Pending == "" {
 		return fmt.Errorf("no operator is reserved")
 	}
-	if trust < 0 || trust > 200 {
-		return fmt.Errorf("trust must be between 0 and 200")
+	if err := validObservation(trust, rings); err != nil {
+		return err
+	}
+	if s.TargetRings < 1 || s.TargetRings > 3 {
+		return fmt.Errorf("invalid gift ring target")
 	}
 	s.BeforeTrust = trust
-	s.BeforeLimited = limited
-	s.Prepared = trust < 200 && !limited
+	s.BeforeRings = rings
+	s.BeforeLimited = rings == 3
+	s.SelectedCount = 0
+	s.Prepared = trust < 200 && rings < s.TargetRings
 	return nil
 }
 
-// commitAfter counts an operator only once and only after trust or daily-limit
-// evidence changes from the state observed before submitting the gift.
-func (s *session) commitAfter(trust int, limited bool) (bool, error) {
-	if trust < 0 || trust > 200 {
-		return false, fmt.Errorf("trust must be between 0 and 200")
+// commitAfter counts only a real post-confirmation observation. Daily rings are
+// cumulative; a trust increase below the configured daily target is insufficient.
+func (s *session) commitAfter(trust, rings int) (bool, error) {
+	if err := validObservation(trust, rings); err != nil {
+		return false, err
 	}
 	if s.Pending == "" {
 		return false, fmt.Errorf("no operator is reserved")
@@ -138,16 +171,46 @@ func (s *session) commitAfter(trust int, limited bool) (bool, error) {
 	if !s.Prepared || s.Remaining == 0 {
 		return false, fmt.Errorf("operator was not prepared for gifting")
 	}
-	if trust < s.BeforeTrust {
-		return false, fmt.Errorf("trust decreased between gift observations")
+	if trust < s.BeforeTrust || rings < s.BeforeRings {
+		return false, fmt.Errorf("gift progress decreased between observations")
 	}
-	if trust <= s.BeforeTrust && (s.BeforeLimited || !limited) {
-		return false, fmt.Errorf("gift success was not confirmed by trust or daily-limit change")
+	// A recipient reaching total max trust cannot gain further daily progress.
+	if trust != 200 && (rings < s.TargetRings || rings <= s.BeforeRings) {
+		return false, fmt.Errorf("gift daily ring target was not confirmed")
 	}
 	s.Completed = append(s.Completed, s.Pending)
 	s.Remaining--
 	s.Prepared = false
 	return true, nil
+}
+
+// observeSelection records a strictly growing total across all gift categories.
+// Preview progress controls selection only and never consumes a recipient.
+func (s *session) observeSelection(trust, rings, count int) (bool, error) {
+	if err := validObservation(trust, rings); err != nil {
+		return false, err
+	}
+	if !s.Prepared || s.Pending == "" {
+		return false, fmt.Errorf("operator was not prepared for selecting gifts")
+	}
+	if count <= s.SelectedCount {
+		return false, fmt.Errorf("selected gift count has not increased")
+	}
+	if trust < s.BeforeTrust || rings < s.BeforeRings {
+		return false, fmt.Errorf("gift preview progress decreased")
+	}
+	s.SelectedCount = count
+	return trust == 200 || rings >= s.TargetRings, nil
+}
+
+func validObservation(trust, rings int) error {
+	if trust < 0 || trust > 200 {
+		return fmt.Errorf("trust must be between 0 and 200")
+	}
+	if rings < 0 || rings > 3 {
+		return fmt.Errorf("daily rings must be between 0 and 3")
+	}
+	return nil
 }
 
 func (s *session) reject() error {

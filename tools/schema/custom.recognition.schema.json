@@ -20,6 +20,7 @@
                 "GiftOperatorCandidateRecognition",
                 "GiftOperatorDialogueRecognition",
                 "GiftOperatorGiftStatusRecognition",
+                "GiftOperatorGiftSelectionRecognition",
                 "ImageCheckNotPassedRecognition",
                 "IconRecognition",
                 "IntelArchiveScanDetailRecognition",

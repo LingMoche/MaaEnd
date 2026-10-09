@@ -63,6 +63,9 @@ func updateSession(store nodeStore, param sessionActionParam, detail *maa.Recogn
 		if err := s.reserve(info.Operator); err != nil {
 			return err
 		}
+		if err := setSelectionReadiness(store, false, false); err != nil {
+			return err
+		}
 		s.Generic = info.Template != ""
 		if s.Generic {
 			if info.Portrait == "" {
@@ -108,51 +111,13 @@ func updateSession(store nodeStore, param sessionActionParam, detail *maa.Recogn
 		}
 		s.EncounteredName = ""
 		s.Prepared = false
-	case "observe_before", "observe_after":
-		var status giftStatus
+	case "observe_before", "observe_after", "observe_selection":
+		var status selectionStatus
 		if err := decodeCustomDetail(detail, &status); err != nil {
 			return err
 		}
-		if s.Generic && !status.IdentityMatch {
-			if param.Operation != "observe_before" {
-				return fmt.Errorf("verification screen belongs to another operator")
-			}
-			s.Prepared = false
-			if err := setGiftEligibility(store, false, false, true); err != nil {
-				return err
-			}
-			break
-		}
-		if status.Trust == nil || status.Limited == nil {
-			return fmt.Errorf("gift status must include trust and limited")
-		}
-		if s.Generic {
-			if err := bindGiftIdentity(&s, status.Name, param.Operation == "observe_before"); err != nil {
-				return err
-			}
-		}
-		if param.Operation == "observe_before" {
-			if s.Generic && processedGiftName(s, status.Name) {
-				s.Prepared = false
-				log.Info().Str("component", "GiftOperatorSessionAction").Str("name", status.Name).Msg("excluded previously processed gift UI name")
-				if err := setGiftEligibility(store, false, true, false); err != nil {
-					return err
-				}
-				break
-			}
-			if err := s.observeBefore(*status.Trust, *status.Limited); err != nil {
-				return err
-			}
-			if err := setGiftEligibility(store, s.Prepared, !s.Prepared, false); err != nil {
-				return err
-			}
-		} else {
-			committed, err := s.commitAfter(*status.Trust, *status.Limited)
-			if err != nil {
-				return err
-			}
-			log.Info().Str("component", "GiftOperatorSessionAction").Str("operator", s.Pending).
-				Int("remaining", s.Remaining).Bool("committed", committed).Msg("confirmed gift result")
+		if err := applyGiftObservation(store, &s, param.Operation, status); err != nil {
+			return err
 		}
 	case "reject":
 		if err := s.reject(); err != nil {
@@ -170,6 +135,77 @@ func updateSession(store nodeStore, param sessionActionParam, detail *maa.Recogn
 		return fmt.Errorf("unsupported operation %q", param.Operation)
 	}
 	return saveSession(store, s)
+}
+
+func applyGiftObservation(store nodeStore, s *session, operation string, status selectionStatus) error {
+	if operation != "observe_selection" && status.Preview {
+		return fmt.Errorf("gift preview cannot confirm actual progress")
+	}
+	if s.Generic && !status.IdentityMatch {
+		if operation != "observe_before" {
+			return fmt.Errorf("verification screen belongs to another operator")
+		}
+		s.Prepared = false
+		return setGiftEligibility(store, false, false, true)
+	}
+	if status.Trust == nil || status.Limited == nil {
+		return fmt.Errorf("gift status must include trust and limited")
+	}
+	if status.CompletedRings == nil && *status.Trust != 200 {
+		return fmt.Errorf("gift status must include completed daily rings")
+	}
+	if s.Generic {
+		if err := bindGiftIdentity(s, status.Name, operation == "observe_before"); err != nil {
+			return err
+		}
+	}
+	// Missing tier is permitted only at terminal max trust. Keep the baseline
+	// ring value, rather than inventing a newly completed ring for that case.
+	rings := s.BeforeRings
+	if status.CompletedRings != nil {
+		rings = *status.CompletedRings
+	}
+	switch operation {
+	case "observe_before":
+		if s.Generic && processedGiftName(*s, status.Name) {
+			s.Prepared = false
+			log.Info().Str("component", "GiftOperatorSessionAction").Str("name", status.Name).Msg("excluded previously processed gift UI name")
+			return setGiftEligibility(store, false, true, false)
+		}
+		if err := s.observeBefore(*status.Trust, rings); err != nil {
+			return err
+		}
+		return setGiftEligibility(store, s.Prepared, !s.Prepared, false)
+	case "observe_selection":
+		if !status.Preview || status.SelectedCount == nil {
+			return fmt.Errorf("gift selection must include preview and selected count")
+		}
+		ready, err := s.observeSelection(*status.Trust, rings, *status.SelectedCount)
+		if err != nil {
+			return err
+		}
+		log.Info().Str("component", "GiftOperatorSessionAction").Str("operator", s.Pending).
+			Int("selected_count", s.SelectedCount).Int("preview_rings", rings).Bool("ready", ready).Msg("observed selected gift total")
+		return setSelectionReadiness(store, ready, !ready)
+	case "observe_after":
+		committed, err := s.commitAfter(*status.Trust, rings)
+		if err != nil {
+			return err
+		}
+		log.Info().Str("component", "GiftOperatorSessionAction").Str("operator", s.Pending).
+			Int("remaining", s.Remaining).Int("target_rings", s.TargetRings).Int("completed_rings", rings).
+			Bool("rings_known", status.CompletedRings != nil).Bool("committed", committed).Msg("confirmed gift result")
+		return nil
+	default:
+		return fmt.Errorf("unsupported gift observation %q", operation)
+	}
+}
+
+func setSelectionReadiness(store nodeStore, ready, more bool) error {
+	return store.OverridePipeline(map[string]any{
+		"GiftOperatorSendSelectionReady": map[string]any{"enabled": ready},
+		"GiftOperatorSendSelectionMore":  map[string]any{"enabled": more},
+	})
 }
 
 func decodeCustomDetail(detail *maa.RecognitionDetail, target any) error {

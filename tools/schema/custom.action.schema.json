@@ -110,7 +110,17 @@
                         "type": "object",
                         "properties": {
                             "operation": {
-                                "enum": ["init", "reserve", "identify", "skip_dialogue", "observe_before", "observe_after", "reject", "finish"]
+                                "enum": [
+                                    "init",
+                                    "reserve",
+                                    "identify",
+                                    "skip_dialogue",
+                                    "observe_before",
+                                    "observe_after",
+                                    "observe_selection",
+                                    "reject",
+                                    "finish"
+                                ]
                             },
                             "count": { "type": "integer", "minimum": 1 }
                         },

@@ -1028,7 +1028,7 @@
                     "option": [
                         "SelectOperator",
                         "GiftOperatorCount",
-                        "GiftCount"
+                        "GiftRingCount"
                     ],
                     "pipeline_override": {
                         "GiftOperatorSendMain": {
@@ -1038,27 +1038,6 @@
                 }
             ],
             "default_case": "No"
-        },
-        "GiftCount": {
-            "type": "input",
-            "label": "$option.GiftCount.label",
-            "description": "$option.GiftCount.description",
-            "inputs": [
-                {
-                    "name": "Count",
-                    "label": "$option.GiftCount.inputs.Count.label",
-                    "description": "$option.GiftCount.inputs.Count.description",
-                    "default": "1",
-                    "pipeline_type": "int",
-                    "verify": "^[1-9]\\d*$"
-                }
-            ],
-            "pipeline_override": {
-                "GiftOperatorClickGift": {
-                    "repeat": "{Count}",
-                    "repeat_delay": 100
-                }
-            }
         },
         "GiftOperatorCount": {
             "type": "input",
@@ -1080,6 +1059,46 @@
                     }
                 }
             }
+        },
+        "GiftRingCount": {
+            "type": "select",
+            "label": "$option.GiftRingCount.label",
+            "cases": [
+                {
+                    "name": "OneRing",
+                    "label": "$option.GiftRingCount.OneRing.label",
+                    "pipeline_override": {
+                        "GiftOperatorSendMain": {
+                            "attach": {
+                                "target_rings": 1
+                            }
+                        }
+                    }
+                },
+                {
+                    "name": "TwoRings",
+                    "label": "$option.GiftRingCount.TwoRings.label",
+                    "pipeline_override": {
+                        "GiftOperatorSendMain": {
+                            "attach": {
+                                "target_rings": 2
+                            }
+                        }
+                    }
+                },
+                {
+                    "name": "ThreeRings",
+                    "label": "$option.GiftRingCount.ThreeRings.label",
+                    "pipeline_override": {
+                        "GiftOperatorSendMain": {
+                            "attach": {
+                                "target_rings": 3
+                            }
+                        }
+                    }
+                }
+            ],
+            "default_case": "ThreeRings"
         }
     }
 }
