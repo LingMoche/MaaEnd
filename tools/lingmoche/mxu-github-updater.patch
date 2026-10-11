@@ -1,0 +1,951 @@
+diff --git a/src-tauri/src/commands/download.rs b/src-tauri/src/commands/download.rs
+index 3a41764..0036e51 100644
+--- a/src-tauri/src/commands/download.rs
++++ b/src-tauri/src/commands/download.rs
+@@ -59,19 +59,68 @@ static DOWNLOAD_CANCELLED: AtomicBool = AtomicBool::new(false);
+ /// 当前下载的 session ID，用于区分不同的下载任务
+ static CURRENT_DOWNLOAD_SESSION: AtomicU64 = AtomicU64::new(0);
+ 
+-/// 根据版本号获取 GitHub Release URL
+-///
+-/// 使用 GitHub API 获取指定版本的 Release 信息，支持使用 GitHub PAT 和代理
+-/// 解析 GitHub API 返回的 JSON 数据，找到与 target_version 匹配的 release，并返回 URL
+-#[tauri::command]
+-pub async fn get_github_release_by_version(
+-    owner: String,
+-    repo: String,
+-    target_version: String,
++fn valid_github_repository(owner: &str, repo: &str) -> bool {
++    !owner.is_empty()
++        && owner.len() <= 39
++        && owner.bytes().all(|c| c.is_ascii_alphanumeric() || c == b'-')
++        && !repo.is_empty()
++        && repo.len() <= 100
++        && repo != "."
++        && repo != ".."
++        && repo
++            .bytes()
++            .all(|c| c.is_ascii_alphanumeric() || b"._-".contains(&c))
++}
++
++#[cfg(test)]
++mod github_repository_tests {
++    use super::valid_github_repository;
++
++    #[test]
++    fn github_release_accepts_null_title_and_body() {
++        let release: super::GitHubRelease = serde_json::from_str(
++            r#"{"tag_name":"v2.33.0","name":null,"body":null,"prerelease":false,"assets":[]}"#,
++        )
++        .unwrap();
++        assert!(release.name.is_none());
++        assert!(release.body.is_none());
++        assert_eq!(release.tag_name, "v2.33.0");
++    }
++
++    #[test]
++    fn github_repository_allows_safe_names() {
++        assert!(valid_github_repository("LingMoche", "MaaEnd"));
++        assert!(valid_github_repository("maa-org", "MaaEnd.Test_v2"));
++    }
++
++    #[test]
++    fn github_repository_rejects_path_and_query_injection() {
++        for (owner, repo) in [
++            ("", "MaaEnd"),
++            ("LingMoche/other", "MaaEnd"),
++            ("LingMoche", ".."),
++            ("LingMoche", "MaaEnd?per_page=999"),
++            ("LingMoche", "MaaEnd/../../other"),
++            ("LingMoche", "MaaEnd%2fother"),
++        ] {
++            assert!(!valid_github_repository(owner, repo));
++        }
++    }
++}
++
++async fn fetch_github_releases(
++    owner: &str,
++    repo: &str,
+     github_pat: Option<String>,
+     proxy_url: Option<String>,
+-) -> Result<Option<GitHubRelease>, String> {
+-    let url = format!("https://api.github.com/repos/{}/{}/releases", owner, repo);
++) -> Result<Vec<GitHubRelease>, String> {
++    if !valid_github_repository(owner, repo) {
++        return Err("Invalid GitHub repository".to_string());
++    }
++    let url = format!(
++        "https://api.github.com/repos/{}/{}/releases?per_page=100",
++        owner, repo
++    );
+ 
+     // 构造请求头
+     let mut client_builder = reqwest::Client::builder()
+@@ -116,14 +165,40 @@ pub async fn get_github_release_by_version(
+         .await
+         .map_err(|e| format!("请求失败: {}", e))?;
+ 
++    if response.status() == reqwest::StatusCode::NOT_FOUND {
++        return Ok(Vec::new());
++    }
+     if !response.status().is_success() {
+         return Err(format!("GitHub API 错误: {}", response.status()));
+     }
+ 
+-    let releases: Vec<GitHubRelease> = response
++    response
+         .json()
+         .await
+-        .map_err(|e| format!("解析 JSON 失败: {}", e))?;
++        .map_err(|e| format!("解析 JSON 失败: {}", e))
++}
++
++/// Query this project's GitHub Releases without requiring a MirrorChyan resource.
++#[tauri::command]
++pub async fn get_github_releases(
++    owner: String,
++    repo: String,
++    github_pat: Option<String>,
++    proxy_url: Option<String>,
++) -> Result<Vec<GitHubRelease>, String> {
++    fetch_github_releases(&owner, &repo, github_pat, proxy_url).await
++}
++
++/// Fetch a release matching MirrorChyan's requested version.
++#[tauri::command]
++pub async fn get_github_release_by_version(
++    owner: String,
++    repo: String,
++    target_version: String,
++    github_pat: Option<String>,
++    proxy_url: Option<String>,
++) -> Result<Option<GitHubRelease>, String> {
++    let releases = fetch_github_releases(&owner, &repo, github_pat, proxy_url).await?;
+ 
+     let normalize = |v: &str| {
+         v.trim_start_matches(|c| c == 'v' || c == 'V')
+@@ -135,7 +210,8 @@ pub async fn get_github_release_by_version(
+         if normalize(&release.tag_name) == target_normalized {
+             info!(
+                 "找到匹配的 Release: {} (tag: {})",
+-                release.name, release.tag_name
++                release.name.as_deref().unwrap_or(&release.tag_name),
++                release.tag_name
+             );
+             return Ok(Some(release));
+         }
+diff --git a/src-tauri/src/commands/types.rs b/src-tauri/src/commands/types.rs
+index abe9de5..9523860 100644
+--- a/src-tauri/src/commands/types.rs
++++ b/src-tauri/src/commands/types.rs
+@@ -495,9 +495,11 @@ pub struct GitHubAsset {
+ #[derive(Debug, Serialize, Deserialize)]
+ pub struct GitHubRelease {
+     pub tag_name: String,
+-    pub name: String,
++    pub name: Option<String>,
+     pub body: Option<String>,
+     pub prerelease: bool,
++    #[serde(default)]
++    pub draft: bool,
+     pub assets: Vec<GitHubAsset>,
+ }
+ 
+diff --git a/src-tauri/src/lib.rs b/src-tauri/src/lib.rs
+index 444a547..0603a09 100644
+--- a/src-tauri/src/lib.rs
++++ b/src-tauri/src/lib.rs
+@@ -279,6 +279,7 @@ pub fn run() {
+             commands::update::cleanup_update_artifacts,
+             // 下载命令
+             commands::download::get_github_release_by_version,
++            commands::download::get_github_releases,
+             commands::download::download_file,
+             commands::download::cancel_download,
+             // 系统相关命令
+diff --git a/src-tauri/tauri.conf.json b/src-tauri/tauri.conf.json
+index 9be7a3d..e849f85 100644
+--- a/src-tauri/tauri.conf.json
++++ b/src-tauri/tauri.conf.json
+@@ -1,8 +1,8 @@
+ {
+   "$schema": "https://schema.tauri.app/config/2",
+-  "productName": "mxu",
++  "productName": "MaaEnd-LingMoche",
+   "version": "0.1.0",
+-  "identifier": "com.misteo.mxu",
++  "identifier": "com.lingmoche.maaend",
+   "build": {
+     "beforeDevCommand": "pnpm dev",
+     "devUrl": "http://localhost:1420",
+diff --git a/src/App.tsx b/src/App.tsx
+index c850f8a..8164c9f 100644
+--- a/src/App.tsx
++++ b/src/App.tsx
+@@ -459,7 +459,7 @@ function App() {
+         const proxyForDownload = proxySettingsForUpdateDownload(
+           updateResult.downloadSource,
+           appState.proxySettings,
+-          appState.mirrorChyanSettings.cdk,
++          appState.projectInterface?.mirrorchyan_rid ? appState.mirrorChyanSettings.cdk : undefined,
+         );
+ 
+         const result = await downloadUpdate({
+@@ -1054,7 +1054,10 @@ function App() {
+       }
+ 
+       // 自动检查更新并下载（调试版本跳过，MXU 开发模式跳过）
+-      if (result.interface.mirrorchyan_rid && result.interface.version) {
++      if (
++        (result.interface.mirrorchyan_rid || result.interface.github) &&
++        result.interface.version
++      ) {
+         if (import.meta.env.DEV) {
+           log.info('MXU 开发模式，跳过自动更新检查');
+         } else if (isDebugVersion(result.interface.version)) {
+diff --git a/src/components/SettingsPage.tsx b/src/components/SettingsPage.tsx
+index 42dfa41..b9e7ade 100644
+--- a/src/components/SettingsPage.tsx
++++ b/src/components/SettingsPage.tsx
+@@ -270,7 +270,7 @@ export function SettingsPage({ onClose }: SettingsPageProps) {
+     items.push({ id: 'general', icon: Settings2, labelKey: 'settings.general' });
+     items.push({ id: 'hotkeys', icon: Keyboard, labelKey: 'settings.hotkeys' });
+     items.push({ id: 'webserver', icon: Globe, labelKey: 'webserver.title' });
+-    if (projectInterface?.mirrorchyan_rid) {
++    if (projectInterface?.mirrorchyan_rid || projectInterface?.github) {
+       items.push({ id: 'update', icon: Download, labelKey: 'mirrorChyan.title' });
+     }
+     items.push(
+@@ -278,7 +278,7 @@ export function SettingsPage({ onClose }: SettingsPageProps) {
+       { id: 'about', icon: Info, labelKey: 'about.title' },
+     );
+     return items;
+-  }, [projectInterface?.mirrorchyan_rid, settingsSections.length]);
++  }, [projectInterface?.mirrorchyan_rid, projectInterface?.github, settingsSections.length]);
+ 
+   // 当前高亮的 section
+   const [activeSection, setActiveSection] = useState('appearance');
+diff --git a/src/components/UpdateInfoCard.tsx b/src/components/UpdateInfoCard.tsx
+index ed6e948..68bba62 100644
+--- a/src/components/UpdateInfoCard.tsx
++++ b/src/components/UpdateInfoCard.tsx
+@@ -170,7 +170,7 @@ function SlowDownloadHint({ onClick }: { onClick: () => void }) {
+ 
+   const hasCdk = !!cdk && cdk.trim() !== '';
+ 
+-  // 没有 mirrorchyan_rid 时设置页不存在更新分区，跳过去是空的
++  // GitHub-only projects do not offer a MirrorChyan CDK download channel.
+   if (!mirrorChyanRid || downloadStatus !== 'downloading' || hasCdk) return null;
+   if (slowDownloadSince === null || Date.now() - slowDownloadSince < SLOW_DOWNLOAD_DURATION_MS) {
+     return null;
+diff --git a/src/components/UpdatePanel.tsx b/src/components/UpdatePanel.tsx
+index e3e3bf3..04a313e 100644
+--- a/src/components/UpdatePanel.tsx
++++ b/src/components/UpdatePanel.tsx
+@@ -64,7 +64,9 @@ export function UpdatePanel({ onClose, anchorRef }: UpdatePanelProps) {
+       const proxyForDownload = proxySettingsForUpdateDownload(
+         updateInfo.downloadSource,
+         proxySettings,
+-        mirrorChyanSettings.cdk,
++        useAppStore.getState().projectInterface?.mirrorchyan_rid
++          ? mirrorChyanSettings.cdk
++          : undefined,
+       );
+ 
+       const result = await downloadUpdate({
+@@ -342,7 +344,13 @@ export function UpdatePanel({ onClose, anchorRef }: UpdatePanelProps) {
+           {!updateInfo.downloadUrl && !updateInfo.errorCode && (
+             <div className="flex items-center gap-2 text-xs text-text-muted">
+               <AlertCircle className="w-3.5 h-3.5 text-warning" />
+-              <span>{t('mirrorChyan.noDownloadUrl')}</span>
++              <span>
++                {t(
++                  useAppStore.getState().projectInterface?.mirrorchyan_rid
++                    ? 'mirrorChyan.noDownloadUrl'
++                    : 'mirrorChyan.noGitHubAsset',
++                )}
++              </span>
+             </div>
+           )}
+ 
+diff --git a/src/components/settings/UpdateSection.tsx b/src/components/settings/UpdateSection.tsx
+index bd9aaf3..42c470e 100644
+--- a/src/components/settings/UpdateSection.tsx
++++ b/src/components/settings/UpdateSection.tsx
+@@ -15,6 +15,7 @@ import {
+   Network,
+ } from 'lucide-react';
+ import clsx from 'clsx';
++import { openUrl } from '@tauri-apps/plugin-opener';
+ 
+ import { useAppStore } from '@/stores/appStore';
+ import {
+@@ -76,11 +77,12 @@ export function UpdateSection() {
+ 
+   const projectName =
+     resolveI18nText(projectInterface?.label, translations) || projectInterface?.name || 'MXU';
++  const usesMirrorChyan = !!projectInterface?.mirrorchyan_rid;
+ 
+   // 检查是否禁用代理（填写了 MirrorChyan CDK）
+   const isProxyDisabled = useMemo(() => {
+-    return mirrorChyanSettings.cdk && mirrorChyanSettings.cdk.trim() !== '';
+-  }, [mirrorChyanSettings.cdk]);
++    return usesMirrorChyan && mirrorChyanSettings.cdk && mirrorChyanSettings.cdk.trim() !== '';
++  }, [usesMirrorChyan, mirrorChyanSettings.cdk]);
+ 
+   // 判断是否为调试版本（interface 调试版本，或 MXU 自身开发模式）
+   const isDebugMode = useMemo(() => {
+@@ -136,7 +138,7 @@ export function UpdateSection() {
+         const proxyForDownload = proxySettingsForUpdateDownload(
+           info.downloadSource,
+           proxySettings,
+-          mirrorChyanSettings.cdk,
++          projectInterface?.mirrorchyan_rid ? mirrorChyanSettings.cdk : undefined,
+         );
+ 
+         const result = await downloadUpdate({
+@@ -169,6 +171,7 @@ export function UpdateSection() {
+       setDownloadSavePath,
+       proxySettings,
+       mirrorChyanSettings.cdk,
++      projectInterface?.mirrorchyan_rid,
+     ],
+   );
+ 
+@@ -309,8 +312,11 @@ export function UpdateSection() {
+ 
+   // 检查更新
+   const handleCheckUpdate = async () => {
+-    if (!projectInterface?.mirrorchyan_rid || !projectInterface?.version) {
+-      addDebugLog('未配置 mirrorchyan_rid 或 version，无法检查更新');
++    if (
++      !(projectInterface?.mirrorchyan_rid || projectInterface?.github) ||
++      !projectInterface?.version
++    ) {
++      addDebugLog('未配置更新源或 version，无法检查更新');
+       return;
+     }
+ 
+@@ -320,6 +326,7 @@ export function UpdateSection() {
+     }
+ 
+     setCheckFailed(false);
++    setUpdateInfo(null);
+     setUpdateCheckLoading(true);
+     addDebugLog(`开始检查更新... (频道: ${mirrorChyanSettings.channel})`);
+ 
+@@ -331,6 +338,7 @@ export function UpdateSection() {
+         channel: mirrorChyanSettings.channel,
+         userAgent: 'MXU',
+         githubUrl: projectInterface.github,
++        githubPat: mirrorChyanSettings.githubPat || undefined,
+         proxyUrl: proxySettings?.url,
+         projectName: projectInterface.name,
+       });
+@@ -363,7 +371,7 @@ export function UpdateSection() {
+     }
+   };
+ 
+-  if (!projectInterface?.mirrorchyan_rid) {
++  if (!(projectInterface?.mirrorchyan_rid || projectInterface?.github)) {
+     return null;
+   }
+ 
+@@ -416,46 +424,60 @@ export function UpdateSection() {
+             </div>
+ 
+             {/* CDK 输入 */}
+-            <div className="pt-4 border-t border-border">
+-              <div className="flex items-center gap-3 mb-3">
+-                <Key className="w-5 h-5 text-accent" />
+-                <span className="font-medium text-text-primary">{t('mirrorChyan.cdk')}</span>
+-                <button
+-                  onClick={() => openMirrorChyanWebsite('mxu_settings')}
+-                  className="ml-auto text-xs text-accent hover:underline flex items-center gap-1"
+-                >
+-                  {t('mirrorChyan.getCdk')}
+-                  <ExternalLink className="w-3 h-3" />
+-                </button>
+-              </div>
+-              <div className="relative">
+-                <input
+-                  ref={cdkInputRef}
+-                  type={showCdk ? 'text' : 'password'}
+-                  value={mirrorChyanSettings.cdk}
+-                  onChange={(e) => handleCdkChange(e.target.value)}
+-                  placeholder={t('mirrorChyan.cdkPlaceholder')}
+-                  className="w-full px-3 py-2.5 pr-10 rounded-lg bg-bg-tertiary border border-border text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-accent/50"
+-                />
+-                <button
+-                  onClick={() => setShowCdk(!showCdk)}
+-                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-text-muted hover:text-text-secondary transition-colors"
+-                >
+-                  {showCdk ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+-                </button>
+-              </div>
+-              <div className="mt-3 text-xs text-text-muted leading-relaxed">
+-                <p>
++            {usesMirrorChyan && (
++              <div className="pt-4 border-t border-border">
++                <div className="flex items-center gap-3 mb-3">
++                  <Key className="w-5 h-5 text-accent" />
++                  <span className="font-medium text-text-primary">{t('mirrorChyan.cdk')}</span>
+                   <button
+-                    onClick={() => openMirrorChyanWebsite('mxu_settings_hint')}
+-                    className="text-accent hover:underline"
++                    onClick={() => openMirrorChyanWebsite('mxu_settings')}
++                    className="ml-auto text-xs text-accent hover:underline flex items-center gap-1"
+                   >
+-                    {t('mirrorChyan.serviceName')}
++                    {t('mirrorChyan.getCdk')}
++                    <ExternalLink className="w-3 h-3" />
+                   </button>
+-                  {t('mirrorChyan.cdkHintAfterLink', { projectName })}
+-                </p>
++                </div>
++                <div className="relative">
++                  <input
++                    ref={cdkInputRef}
++                    type={showCdk ? 'text' : 'password'}
++                    value={mirrorChyanSettings.cdk}
++                    onChange={(e) => handleCdkChange(e.target.value)}
++                    placeholder={t('mirrorChyan.cdkPlaceholder')}
++                    className="w-full px-3 py-2.5 pr-10 rounded-lg bg-bg-tertiary border border-border text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-accent/50"
++                  />
++                  <button
++                    onClick={() => setShowCdk(!showCdk)}
++                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-text-muted hover:text-text-secondary transition-colors"
++                  >
++                    {showCdk ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
++                  </button>
++                </div>
++                <div className="mt-3 text-xs text-text-muted leading-relaxed">
++                  <p>
++                    <button
++                      onClick={() => openMirrorChyanWebsite('mxu_settings_hint')}
++                      className="text-accent hover:underline"
++                    >
++                      {t('mirrorChyan.serviceName')}
++                    </button>
++                    {t('mirrorChyan.cdkHintAfterLink', { projectName })}
++                  </p>
++                </div>
+               </div>
+-            </div>
++            )}
++
++            {!usesMirrorChyan && (
++              <p className="text-xs text-text-muted">
++                {t('mirrorChyan.githubSource')}{' '}
++                <button
++                  onClick={() => openUrl(`${projectInterface.github}/releases`)}
++                  className="text-accent hover:underline"
++                >
++                  {projectInterface.github}
++                </button>
++              </p>
++            )}
+ 
+             {/* 代理设置 */}
+             {!isProxyDisabled && (
+@@ -535,7 +557,9 @@ export function UpdateSection() {
+               {/* 更新状态显示 */}
+               {updateInfo && !updateInfo.hasUpdate && !updateInfo.errorCode && (
+                 <p className="text-xs text-center text-text-muted">
+-                  {t('mirrorChyan.upToDate', { version: updateInfo.versionName })}
++                  {updateInfo.noPublishedRelease
++                    ? t('mirrorChyan.noPublishedRelease')
++                    : t('mirrorChyan.upToDate', { version: updateInfo.versionName })}
+                 </p>
+               )}
+ 
+@@ -597,7 +621,13 @@ export function UpdateSection() {
+                   {!updateInfo.downloadUrl && !updateInfo.errorCode && (
+                     <div className="flex items-center gap-2 text-xs text-text-muted">
+                       <AlertCircle className="w-3.5 h-3.5 text-warning" />
+-                      <span>{t('mirrorChyan.noDownloadUrl')}</span>
++                      <span>
++                        {t(
++                          usesMirrorChyan
++                            ? 'mirrorChyan.noDownloadUrl'
++                            : 'mirrorChyan.noGitHubAsset',
++                        )}
++                      </span>
+                     </div>
+                   )}
+ 
+diff --git a/src/i18n/locales/en-US.ts b/src/i18n/locales/en-US.ts
+index 154e625..819a31a 100644
+--- a/src/i18n/locales/en-US.ts
++++ b/src/i18n/locales/en-US.ts
+@@ -697,6 +697,9 @@ export default {
+ 
+   // MirrorChyan Update
+   mirrorChyan: {
++    githubSource: 'Update source:',
++    noPublishedRelease: 'No releases have been published on this update channel',
++    noGitHubAsset: 'This release has no complete package for your current system',
+     title: 'Update',
+     debugModeNotice: 'Debug version detected, auto-update is disabled',
+     channel: 'Update Channel',
+diff --git a/src/i18n/locales/ja-JP.ts b/src/i18n/locales/ja-JP.ts
+index 15e63a1..c523294 100644
+--- a/src/i18n/locales/ja-JP.ts
++++ b/src/i18n/locales/ja-JP.ts
+@@ -697,6 +697,9 @@ export default {
+ 
+   // MirrorChyan アップデート
+   mirrorChyan: {
++    githubSource: '更新元：',
++    noPublishedRelease: 'この更新チャンネルには公開済みのバージョンがありません',
++    noGitHubAsset: 'このリリースには現在のシステム用の完全なパッケージがありません',
+     title: 'アップデート',
+     debugModeNotice: 'デバッグバージョンのため、自動更新機能が無効になっています',
+     channel: '更新チャンネル',
+diff --git a/src/i18n/locales/ko-KR.ts b/src/i18n/locales/ko-KR.ts
+index c3bee79..1f5b0d7 100644
+--- a/src/i18n/locales/ko-KR.ts
++++ b/src/i18n/locales/ko-KR.ts
+@@ -686,6 +686,9 @@ export default {
+ 
+   // MirrorChyan 업데이트
+   mirrorChyan: {
++    githubSource: '업데이트 출처:',
++    noPublishedRelease: '이 업데이트 채널에는 게시된 버전이 없습니다',
++    noGitHubAsset: '이 릴리스에는 현재 시스템용 전체 패키지가 없습니다',
+     title: '업데이트',
+     debugModeNotice: '디버그 버전이므로 자동 업데이트 기능이 비활성화되었습니다',
+     channel: '업데이트 채널',
+diff --git a/src/i18n/locales/zh-CN.ts b/src/i18n/locales/zh-CN.ts
+index 3dca5fc..4630473 100644
+--- a/src/i18n/locales/zh-CN.ts
++++ b/src/i18n/locales/zh-CN.ts
+@@ -674,6 +674,9 @@ export default {
+ 
+   // MirrorChyan 更新
+   mirrorChyan: {
++    githubSource: '更新来源：',
++    noPublishedRelease: '此更新频道暂无已发布版本',
++    noGitHubAsset: '此版本暂无适用于当前系统的完整安装包',
+     title: '更新',
+     debugModeNotice: '当前为调试版本，已禁用自动更新功能',
+     channel: '更新频道',
+diff --git a/src/i18n/locales/zh-TW.ts b/src/i18n/locales/zh-TW.ts
+index f73ab27..d1f7ff1 100644
+--- a/src/i18n/locales/zh-TW.ts
++++ b/src/i18n/locales/zh-TW.ts
+@@ -670,6 +670,9 @@ export default {
+ 
+   // MirrorChyan 更新
+   mirrorChyan: {
++    githubSource: '更新來源：',
++    noPublishedRelease: '此更新頻道暫無已發布版本',
++    noGitHubAsset: '此版本暫無適用於目前系統的完整安裝包',
+     title: '更新',
+     debugModeNotice: '目前為除錯版本，已停用自動更新功能',
+     channel: '更新頻道',
+diff --git a/src/services/updateService.ts b/src/services/updateService.ts
+index b98f555..dce82fe 100644
+--- a/src/services/updateService.ts
++++ b/src/services/updateService.ts
+@@ -5,6 +5,13 @@ import type { DownloadProgress, UpdateInfo } from '@/stores/appStore';
+ import { useAppStore } from '@/stores/appStore';
+ import type { ProxySettings, UpdateChannel } from '@/types/config';
+ import { loggers } from '@/utils/logger';
++import {
++  parseGitHubUrl,
++  selectGitHubRelease,
++  matchGitHubReleaseAsset,
++  type GitHubRelease,
++  type GitHubAsset,
++} from '@/utils/githubUpdate';
+ import { getCacheDir, joinPath } from '@/utils/paths';
+ import { invoke } from '@tauri-apps/api/core';
+ import { dirname } from '@tauri-apps/api/path';
+@@ -113,21 +120,6 @@ interface MirrorChyanApiResponse {
+   };
+ }
+ 
+-// GitHub Release API 响应类型
+-interface GitHubRelease {
+-  tag_name: string;
+-  name: string;
+-  body: string;
+-  prerelease: boolean;
+-  assets: GitHubAsset[];
+-}
+-
+-interface GitHubAsset {
+-  name: string;
+-  size: number;
+-  browser_download_url: string;
+-}
+-
+ // 获取操作系统类型（以后端真实 OS 为准；后端未知时回退到浏览器平台，仅纯前端 dev 预览）
+ function getOS(): string {
+   const os = useAppStore.getState().backendOS;
+@@ -240,7 +232,7 @@ async function buildUserAgent(): Promise<string> {
+ }
+ 
+ export interface CheckUpdateOptions {
+-  resourceId: string; // mirrorchyan_rid
++  resourceId?: string; // mirrorchyan_rid; absent for GitHub-only projects
+   currentVersion: string; // 当前版本
+   cdk?: string; // MirrorChyan CDK
+   channel?: UpdateChannel; // 更新频道
+@@ -478,14 +470,6 @@ export function openMirrorChyanWebsite(source?: string) {
+  * 从 GitHub URL 提取 owner 和 repo
+  * 支持格式: https://github.com/owner/repo 或 https://github.com/owner/repo.git
+  */
+-function parseGitHubUrl(url: string): { owner: string; repo: string } | null {
+-  const match = url.match(/github\.com\/([^/]+)\/([^/.]+)/);
+-  if (match) {
+-    return { owner: match[1], repo: match[2] };
+-  }
+-  return null;
+-}
+-
+ /**
+  * 根据版本号获取 GitHub Release
+  * 在 releases 列表中查找 tag_name 匹配的 release（支持带/不带 v 前缀）
+@@ -865,9 +849,60 @@ export interface CheckAndDownloadOptions extends CheckUpdateOptions {
+   projectName?: string; // 项目名称，用于 GitHub API 失败时拼接直接下载链接
+ }
+ 
++/** GitHub-only projects discover their own releases without consulting MirrorChyan. */
++async function checkGitHubUpdate(options: CheckAndDownloadOptions): Promise<UpdateInfo | null> {
++  const {
++    githubUrl,
++    currentVersion,
++    githubPat,
++    proxyUrl,
++    projectName,
++    channel = 'stable',
++  } = options;
++  const repository = githubUrl ? parseGitHubUrl(githubUrl) : null;
++  if (!repository || !githubUrl || !projectName) return null;
++  try {
++    const releases = await invoke<GitHubRelease[]>('get_github_releases', {
++      ...repository,
++      githubPat,
++      proxyUrl,
++    });
++    const release = selectGitHubRelease(releases, channel);
++    if (!release) {
++      return {
++        hasUpdate: false,
++        versionName: currentVersion,
++        releaseNote: '',
++        noPublishedRelease: true,
++      };
++    }
++    const asset = matchGitHubReleaseAsset(
++      release,
++      githubUrl,
++      projectName,
++      getOS(),
++      await getArch(),
++    );
++    return {
++      hasUpdate: compareVersions(release.tag_name, currentVersion) > 0,
++      versionName: release.tag_name,
++      releaseNote: release.body || '',
++      channel: release.prerelease ? 'beta' : 'stable',
++      downloadUrl: asset?.browser_download_url,
++      filename: asset?.name,
++      fileSize: asset?.size,
++      updateType: 'full',
++      downloadSource: 'github',
++    };
++  } catch (error) {
++    log.error('GitHub 更新检查失败:', error);
++    return null;
++  }
++}
++
+ /**
+  * 检查更新并获取下载信息
+- * 始终使用 Mirror酱 检查更新，根据是否有 CDK 决定下载来源
++ * 有 mirrorchyan_rid 时使用 Mirror酱，否则直接检查项目的 GitHub Releases。
+  */
+ export async function checkAndPrepareDownload(
+   options: CheckAndDownloadOptions,
+@@ -878,6 +913,10 @@ export async function checkAndPrepareDownload(
+     return null;
+   }
+ 
++  if (!options.resourceId) {
++    return checkGitHubUpdate(options);
++  }
++
+   const { githubUrl, cdk, channel, githubPat, projectName, proxyUrl, ...checkOptions } = options;
+ 
+   // 始终使用 Mirror酱 检查更新
+diff --git a/src/stores/types.ts b/src/stores/types.ts
+index 6ba8cf3..d56a069 100644
+--- a/src/stores/types.ts
++++ b/src/stores/types.ts
+@@ -62,6 +62,7 @@ export interface UpdateInfo {
+   fileSize?: number;
+   filename?: string;
+   downloadSource?: 'mirrorchyan' | 'github';
++  noPublishedRelease?: boolean;
+   // MirrorChyan API 错误信息
+   errorCode?: number;
+   errorMessage?: string;
+diff --git a/src/types/config.ts b/src/types/config.ts
+index 0931274..94f9d7b 100644
+--- a/src/types/config.ts
++++ b/src/types/config.ts
+@@ -201,7 +201,7 @@ export const defaultWindowSize: WindowSize = {
+ // 默认 MirrorChyan 设置
+ export const defaultMirrorChyanSettings: MirrorChyanSettings = {
+   cdk: '',
+-  channel: 'stable',
++  channel: 'beta',
+ };
+ 
+ // 默认截图帧率
+diff --git a/src/utils/githubUpdate.ts b/src/utils/githubUpdate.ts
+new file mode 100644
+index 0000000..9ccb475
+--- /dev/null
++++ b/src/utils/githubUpdate.ts
+@@ -0,0 +1,103 @@
++import * as semver from 'semver';
++
++export interface GitHubAsset {
++  name: string;
++  size: number;
++  browser_download_url: string;
++}
++
++export interface GitHubRelease {
++  tag_name: string;
++  name: string | null;
++  body: string | null;
++  prerelease: boolean;
++  draft?: boolean;
++  assets: GitHubAsset[];
++}
++
++export function parseGitHubUrl(value: string): { owner: string; repo: string } | null {
++  try {
++    const url = new URL(value);
++    if (
++      url.protocol !== 'https:' ||
++      url.hostname !== 'github.com' ||
++      url.port ||
++      url.username ||
++      url.password ||
++      url.search ||
++      url.hash
++    ) {
++      return null;
++    }
++    const match = url.pathname.match(/^\/([A-Za-z0-9-]+)\/([A-Za-z0-9_.-]+)\/?$/);
++    if (!match) return null;
++    const repo = match[2].replace(/\.git$/i, '');
++    if (!repo || repo === '.' || repo === '..') return null;
++    return { owner: match[1], repo };
++  } catch {
++    return null;
++  }
++}
++
++export function selectGitHubRelease(
++  releases: GitHubRelease[],
++  channel: 'stable' | 'beta',
++): GitHubRelease | null {
++  const candidates = releases.filter((release) => {
++    const version = semver.parse(release.tag_name.replace(/^v/i, ''));
++    if (release.draft || !version || semver.lt(version, '1.0.0')) return false;
++    if (channel === 'stable') return !release.prerelease && version.prerelease.length === 0;
++    return (
++      version.prerelease.length === 0 ||
++      version.prerelease.some((part) => part === 'beta' || part === 'rc')
++    );
++  });
++  candidates.sort((a, b) =>
++    semver.rcompare(a.tag_name.replace(/^v/i, ''), b.tag_name.replace(/^v/i, '')),
++  );
++  return candidates[0] || null;
++}
++
++/** Match the complete package name; debug symbols and another platform cannot win by size. */
++export function matchGitHubReleaseAsset(
++  release: GitHubRelease,
++  githubUrl: string,
++  projectName: string,
++  os: string,
++  arch: string,
++): GitHubAsset | null {
++  const repository = parseGitHubUrl(githubUrl);
++  if (!repository) return null;
++  const platforms: Record<string, string> = { windows: 'win', darwin: 'macos', linux: 'linux' };
++  const architectures: Record<string, string> = { amd64: 'x86_64', arm64: 'aarch64' };
++  const platform = platforms[os];
++  const architecture = architectures[arch];
++  if (!platform || !architecture) return null;
++  const extensions =
++    platform === 'win' ? ['.zip'] : platform === 'macos' ? ['.tar.gz', '.dmg'] : ['.tar.gz'];
++  const prefix = `${projectName}-${platform}-${architecture}-${release.tag_name}`;
++  for (const extension of extensions) {
++    const filename = prefix + extension;
++    const asset = release.assets.find((item) => {
++      if (item.name !== filename) return false;
++      try {
++        const url = new URL(item.browser_download_url);
++        const expected = `/${repository.owner}/${repository.repo}/releases/download/${encodeURIComponent(release.tag_name)}/${encodeURIComponent(filename)}`;
++        return (
++          url.protocol === 'https:' &&
++          url.hostname === 'github.com' &&
++          !url.port &&
++          !url.username &&
++          !url.password &&
++          !url.search &&
++          !url.hash &&
++          url.pathname === expected
++        );
++      } catch {
++        return false;
++      }
++    });
++    if (asset) return asset;
++  }
++  return null;
++}
+diff --git a/tests/githubUpdate.test.ts b/tests/githubUpdate.test.ts
+new file mode 100644
+index 0000000..6ed52eb
+--- /dev/null
++++ b/tests/githubUpdate.test.ts
+@@ -0,0 +1,127 @@
++import { test } from 'node:test';
++import assert from 'node:assert/strict';
++import {
++  parseGitHubUrl,
++  selectGitHubRelease,
++  matchGitHubReleaseAsset,
++  type GitHubRelease,
++} from '../src/utils/githubUpdate.ts';
++
++const repository = 'https://github.com/LingMoche/MaaEnd';
++const project = 'MaaEnd-LingMoche';
++function release(tag: string, prerelease = false): GitHubRelease {
++  const filename = `${project}-win-x86_64-${tag}.zip`;
++  return {
++    tag_name: tag,
++    name: tag,
++    body: '',
++    prerelease,
++    draft: false,
++    assets: [
++      {
++        name: filename,
++        size: 100,
++        browser_download_url: `${repository}/releases/download/${tag}/${filename}`,
++      },
++    ],
++  };
++}
++
++test('GitHub URLs require the exact HTTPS repository host and two safe path segments', () => {
++  assert.deepEqual(parseGitHubUrl(repository), { owner: 'LingMoche', repo: 'MaaEnd' });
++  assert.deepEqual(parseGitHubUrl(repository + '.git'), { owner: 'LingMoche', repo: 'MaaEnd' });
++  for (const url of [
++    'https://github.com.evil.example/LingMoche/MaaEnd',
++    'https://evil.example/github.com/LingMoche/MaaEnd',
++    'https://user:pass@github.com/LingMoche/MaaEnd',
++    'http://github.com/LingMoche/MaaEnd',
++    repository + '/releases',
++    repository + '?redirect=other',
++    repository + '#other',
++    'https://github.com/LingMoche/%2e%2e',
++  ])
++    assert.equal(parseGitHubUrl(url), null, url);
++});
++
++test('stable selects the highest final version and ignores prereleases and drafts', () => {
++  const draft = { ...release('v99.0.0'), draft: true };
++  const candidates = [
++    release('v2.9.0'),
++    release('v2.34.0-beta.1', true),
++    draft,
++    release('v2.33.0'),
++  ];
++  assert.equal(selectGitHubRelease(candidates, 'stable')?.tag_name, 'v2.33.0');
++});
++
++test('a release without a title or body still offers its complete package', () => {
++  const candidate = { ...release('v2.33.0'), name: null, body: null };
++  assert.equal(selectGitHubRelease([candidate], 'stable')?.tag_name, 'v2.33.0');
++  assert.equal(
++    matchGitHubReleaseAsset(candidate, repository, project, 'windows', 'amd64')?.name,
++    `${project}-win-x86_64-v2.33.0.zip`,
++  );
++});
++
++test('beta uses semantic order including fork sequence numbers, regardless of API order', () => {
++  const candidates = [
++    release('v2.33.0-beta.2.lingmoche.2', true),
++    release('v2.33.0-beta.2.lingmoche.10', true),
++    release('v2.32.0'),
++  ];
++  assert.equal(selectGitHubRelease(candidates, 'beta')?.tag_name, 'v2.33.0-beta.2.lingmoche.10');
++  candidates.push(release('v2.33.0'));
++  assert.equal(selectGitHubRelease(candidates, 'beta')?.tag_name, 'v2.33.0');
++});
++
++test('no releases, unsupported channels, and non-updateable tags yield no published release', () => {
++  assert.equal(selectGitHubRelease([], 'beta'), null);
++  assert.equal(selectGitHubRelease([release('v2.33.0-beta.2', true)], 'stable'), null);
++  assert.equal(
++    selectGitHubRelease(
++      [
++        release('v0.1.0'),
++        release('DEBUG_VERSION'),
++        release('v2.33.0-ci.123', true),
++        release('v2.33.0-alpha.1', true),
++      ],
++      'beta',
++    ),
++    null,
++  );
++});
++
++test('Windows selects the complete matching fork archive, not symbols or another architecture', () => {
++  const candidate = release('v2.33.0-beta.2.lingmoche.1', true);
++  candidate.assets.unshift(
++    { ...candidate.assets[0], name: 'MaaEnd-pdb-win-x86_64.zip', size: 99999 },
++    {
++      ...candidate.assets[0],
++      name: candidate.assets[0].name.replace('x86_64', 'aarch64'),
++      size: 99999,
++    },
++    {
++      ...candidate.assets[0],
++      name: candidate.assets[0].name.replace(project, 'MaaEnd'),
++      size: 99999,
++    },
++  );
++  assert.equal(
++    matchGitHubReleaseAsset(candidate, repository, project, 'windows', 'amd64')?.name,
++    `${project}-win-x86_64-v2.33.0-beta.2.lingmoche.1.zip`,
++  );
++  assert.equal(matchGitHubReleaseAsset(candidate, repository, project, 'windows', 'arm64'), null);
++  assert.equal(matchGitHubReleaseAsset(candidate, repository, project, 'unknown', 'amd64'), null);
++});
++
++test('asset URL must belong to the selected fork, release and filename', () => {
++  for (const url of [
++    'https://github.com/MaaEnd/MaaEnd/releases/download/v2.33.0/bad.zip',
++    'https://evil.example/package.zip',
++    `${repository}/releases/download/v2.32.0/${project}-win-x86_64-v2.33.0.zip`,
++  ]) {
++    const candidate = release('v2.33.0');
++    candidate.assets[0].browser_download_url = url;
++    assert.equal(matchGitHubReleaseAsset(candidate, repository, project, 'windows', 'amd64'), null);
++  }
++});
