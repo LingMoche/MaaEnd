@@ -3,6 +3,7 @@ package giftoperator
 import (
 	"encoding/json"
 	"fmt"
+	"slices"
 	"strings"
 )
 
@@ -25,20 +26,22 @@ type portraitEntry struct {
 }
 
 type session struct {
-	Generic         bool            `json:"generic"`
-	Portraits       []portraitEntry `json:"portraits,omitempty"`
-	EncounteredName string          `json:"encountered_name,omitempty"`
-	AvoidNames      []string        `json:"avoid_names,omitempty"`
-	TargetRings     int             `json:"target_rings"`
-	BeforeRings     int             `json:"before_rings"`
-	SelectedCount   int             `json:"selected_count"`
-	Remaining       int             `json:"remaining"`
-	Completed       []string        `json:"completed"`
-	Excluded        []string        `json:"excluded"`
-	Pending         string          `json:"pending"`
-	BeforeTrust     int             `json:"before_trust"`
-	BeforeLimited   bool            `json:"before_limited"`
-	Prepared        bool            `json:"prepared"`
+	Generic           bool            `json:"generic"`
+	Portraits         []portraitEntry `json:"portraits,omitempty"`
+	EncounteredName   string          `json:"encountered_name,omitempty"`
+	AvoidNames        []string        `json:"avoid_names,omitempty"`
+	TargetRings       int             `json:"target_rings"`
+	TargetCount       int             `json:"target_count"`
+	BeforeRings       int             `json:"before_rings"`
+	SelectedCount     int             `json:"selected_count"`
+	ExpectedInventory []int           `json:"expected_inventory,omitempty"`
+	Remaining         int             `json:"remaining"`
+	Completed         []string        `json:"completed"`
+	Excluded          []string        `json:"excluded"`
+	Pending           string          `json:"pending"`
+	BeforeTrust       int             `json:"before_trust"`
+	BeforeLimited     bool            `json:"before_limited"`
+	Prepared          bool            `json:"prepared"`
 }
 
 func initSession(store nodeStore, count int) error {
@@ -52,6 +55,7 @@ func initSession(store nodeStore, count int) error {
 	var config struct {
 		Attach struct {
 			TargetRings *int `json:"target_rings"`
+			TargetCount int  `json:"target_count"`
 		} `json:"attach"`
 	}
 	if err := json.Unmarshal([]byte(raw), &config); err != nil {
@@ -64,10 +68,14 @@ func initSession(store nodeStore, count int) error {
 	if target < 1 || target > 3 {
 		return fmt.Errorf("target_rings must be between 1 and 3")
 	}
+	if config.Attach.TargetCount < 0 {
+		return fmt.Errorf("target_count must be nonnegative")
+	}
 	if err := setSelectionReadiness(store, false, false); err != nil {
 		return err
 	}
-	return saveSession(store, session{TargetRings: target, Remaining: count, Completed: []string{}, Excluded: []string{}})
+	return saveSession(store, session{TargetRings: target, TargetCount: config.Attach.TargetCount,
+		Remaining: count, Completed: []string{}, Excluded: []string{}})
 }
 
 func loadSession(store nodeStore) (session, error) {
@@ -88,8 +96,13 @@ func loadSession(store nodeStore) (session, error) {
 	}
 	s := *node.Attach.Session
 	if s.Remaining < 0 || s.BeforeTrust < 0 || s.BeforeTrust > 200 ||
-		s.TargetRings < 1 || s.TargetRings > 3 || s.BeforeRings < 0 || s.BeforeRings > 3 || s.SelectedCount < 0 {
+		s.TargetRings < 1 || s.TargetRings > 3 || s.TargetCount < 0 || s.BeforeRings < 0 || s.BeforeRings > 3 || s.SelectedCount < 0 {
 		return session{}, fmt.Errorf("invalid gift session values")
+	}
+	if len(s.ExpectedInventory) > 0 {
+		if _, err := sortedGiftInventory(s.ExpectedInventory); err != nil || !slices.IsSorted(s.ExpectedInventory) {
+			return session{}, fmt.Errorf("invalid expected gift inventory")
+		}
 	}
 	return s, nil
 }
@@ -134,6 +147,7 @@ func (s *session) reserve(operator string) error {
 	s.BeforeLimited = false
 	s.BeforeRings = 0
 	s.SelectedCount = 0
+	s.ExpectedInventory = nil
 	s.Prepared = false
 	return nil
 }
@@ -148,17 +162,72 @@ func (s *session) observeBefore(trust, rings int) error {
 	if s.TargetRings < 1 || s.TargetRings > 3 {
 		return fmt.Errorf("invalid gift ring target")
 	}
+	if s.TargetCount < 0 {
+		return fmt.Errorf("invalid gift count target")
+	}
 	s.BeforeTrust = trust
 	s.BeforeRings = rings
 	s.BeforeLimited = rings == 3
 	s.SelectedCount = 0
-	s.Prepared = trust < 200 && rings < s.TargetRings
+	s.ExpectedInventory = nil
+	targetRings := s.TargetRings
+	if s.TargetCount > 0 {
+		targetRings = 3
+	}
+	s.Prepared = trust < 200 && rings < targetRings
 	return nil
 }
 
 // commitAfter counts only a real post-confirmation observation. Daily rings are
 // cumulative; a trust increase below the configured daily target is insufficient.
 func (s *session) commitAfter(trust, rings int) (bool, error) {
+	if s.TargetCount != 0 {
+		return false, fmt.Errorf("quantity gifting must confirm inventory consumption")
+	}
+	canCommit, err := s.canCommitObservation(trust, rings)
+	if err != nil || !canCommit {
+		return false, err
+	}
+	// A recipient reaching total max trust cannot gain further daily progress.
+	if trust != 200 && (rings < s.TargetRings || rings <= s.BeforeRings) {
+		return false, fmt.Errorf("gift daily ring target was not confirmed")
+	}
+	s.completeRecipient()
+	return true, nil
+}
+
+// commitCountAfter requires actual inventory consumption for a selected quantity.
+// A daily or total cap permits fewer gifts, but never bypasses inventory evidence.
+func (s *session) commitCountAfter(trust, rings int, inventory []int) (bool, error) {
+	if s.TargetCount <= 0 {
+		return false, fmt.Errorf("positive gift quantity target is required")
+	}
+	canCommit, err := s.canCommitObservation(trust, rings)
+	if err != nil || !canCommit {
+		return false, err
+	}
+	if s.SelectedCount <= 0 || s.SelectedCount > s.TargetCount {
+		return false, fmt.Errorf("selected quantity is missing or exceeds its target")
+	}
+	if s.SelectedCount < s.TargetCount && trust != 200 && rings != 3 {
+		return false, fmt.Errorf("gift quantity target or actual cap was not confirmed")
+	}
+	expected, err := sortedGiftInventory(s.ExpectedInventory)
+	if err != nil {
+		return false, fmt.Errorf("expected gift inventory: %w", err)
+	}
+	actual, err := sortedGiftInventory(inventory)
+	if err != nil {
+		return false, fmt.Errorf("actual gift inventory: %w", err)
+	}
+	if !slices.Equal(expected, actual) {
+		return false, fmt.Errorf("gift inventory consumption was not confirmed")
+	}
+	s.completeRecipient()
+	return true, nil
+}
+
+func (s *session) canCommitObservation(trust, rings int) (bool, error) {
 	if err := validObservation(trust, rings); err != nil {
 		return false, err
 	}
@@ -174,33 +243,69 @@ func (s *session) commitAfter(trust, rings int) (bool, error) {
 	if trust < s.BeforeTrust || rings < s.BeforeRings {
 		return false, fmt.Errorf("gift progress decreased between observations")
 	}
-	// A recipient reaching total max trust cannot gain further daily progress.
-	if trust != 200 && (rings < s.TargetRings || rings <= s.BeforeRings) {
-		return false, fmt.Errorf("gift daily ring target was not confirmed")
-	}
+	return true, nil
+}
+
+func (s *session) completeRecipient() {
 	s.Completed = append(s.Completed, s.Pending)
 	s.Remaining--
 	s.Prepared = false
-	return true, nil
 }
 
 // observeSelection records a strictly growing total across all gift categories.
 // Preview progress controls selection only and never consumes a recipient.
 func (s *session) observeSelection(trust, rings, count int) (bool, error) {
+	return s.recordSelection(trust, rings, count, false)
+}
+
+// freezeSelection refreshes the last preview immediately before confirmation.
+// Equal counts are permitted only here, after the target or a cap is visible.
+func (s *session) freezeSelection(trust, rings, count int) (bool, error) {
+	return s.recordSelection(trust, rings, count, true)
+}
+
+func (s *session) recordSelection(trust, rings, count int, freezing bool) (bool, error) {
 	if err := validObservation(trust, rings); err != nil {
 		return false, err
 	}
 	if !s.Prepared || s.Pending == "" {
 		return false, fmt.Errorf("operator was not prepared for selecting gifts")
 	}
-	if count <= s.SelectedCount {
+	if count <= 0 || count < s.SelectedCount || (!freezing && count == s.SelectedCount) {
 		return false, fmt.Errorf("selected gift count has not increased")
 	}
 	if trust < s.BeforeTrust || rings < s.BeforeRings {
 		return false, fmt.Errorf("gift preview progress decreased")
 	}
+	if s.TargetCount < 0 || (s.TargetCount > 0 && count > s.TargetCount) {
+		return false, fmt.Errorf("selected gift quantity exceeds its target")
+	}
+	ready := trust == 200
+	if s.TargetCount > 0 {
+		ready = ready || count >= s.TargetCount || rings == 3
+	} else {
+		ready = ready || rings >= s.TargetRings
+	}
+	if freezing && !ready {
+		return false, fmt.Errorf("gift selection target or cap is not ready for confirmation")
+	}
 	s.SelectedCount = count
-	return trust == 200 || rings >= s.TargetRings, nil
+	return ready, nil
+}
+
+// sortedGiftInventory preserves multiplicity and never mutates caller-owned data.
+func sortedGiftInventory(values []int) ([]int, error) {
+	if len(values) == 0 {
+		return nil, fmt.Errorf("complete visible gift inventory is required")
+	}
+	for _, value := range values {
+		if value < 0 {
+			return nil, fmt.Errorf("gift inventory must be nonnegative")
+		}
+	}
+	result := slices.Clone(values)
+	slices.Sort(result)
+	return result, nil
 }
 
 func validObservation(trust, rings int) error {

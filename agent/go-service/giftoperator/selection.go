@@ -19,10 +19,11 @@ var _ maa.CustomRecognitionRunner = &SelectionRecognition{}
 
 type selectionStatus struct {
 	giftStatus
-	SelectedCount *int `json:"selected_count,omitempty"`
+	SelectedCount     *int  `json:"selected_count,omitempty"`
+	ExpectedInventory []int `json:"expected_inventory,omitempty"`
 }
 
-// Run returns a preview only after its total selected quantity has increased.
+// Run requires growing selection except for the final read-only submission snapshot.
 func (r *SelectionRecognition) Run(ctx *maa.Context, arg *maa.CustomRecognitionArg) (*maa.CustomRecognitionResult, bool) {
 	if ctx == nil || arg == nil || arg.Img == nil {
 		return nil, false
@@ -31,7 +32,7 @@ func (r *SelectionRecognition) Run(ctx *maa.Context, arg *maa.CustomRecognitionA
 	if err != nil {
 		return nil, false
 	}
-	status, box, err := recognizeGiftSelection(ctx, arg.Img, s)
+	status, box, err := recognizeGiftSelectionFrame(ctx, arg.Img, s, arg.CurrentTaskName == "GiftOperatorSendFreezeSelection")
 	if err != nil {
 		log.Error().Err(err).Str("component", "GiftOperatorGiftSelectionRecognition").Msg("read selected gift preview failed")
 		return nil, false
@@ -47,6 +48,10 @@ func (r *SelectionRecognition) Run(ctx *maa.Context, arg *maa.CustomRecognitionA
 }
 
 func recognizeGiftSelection(runner portraitRunner, img image.Image, s session) (*selectionStatus, maa.Rect, error) {
+	return recognizeGiftSelectionFrame(runner, img, s, false)
+}
+
+func recognizeGiftSelectionFrame(runner portraitRunner, img image.Image, s session, final bool) (*selectionStatus, maa.Rect, error) {
 	if !s.Prepared || s.Pending == "" || s.Remaining <= 0 {
 		return nil, maa.Rect{}, nil
 	}
@@ -54,37 +59,74 @@ func recognizeGiftSelection(runner portraitRunner, img image.Image, s session) (
 	if err != nil || status == nil {
 		return nil, maa.Rect{}, err
 	}
-	count, hit, err := readSelectedCount(runner, img)
-	if err != nil || !hit {
+	gifts, err := readSelectedGifts(runner, img)
+	if err != nil || len(gifts) == 0 {
 		return nil, maa.Rect{}, err
 	}
-	if count <= s.SelectedCount {
+	count, err := selectedGiftTotal(gifts)
+	if err != nil {
+		return nil, maa.Rect{}, err
+	}
+	if count < s.SelectedCount || (!final && count == s.SelectedCount) {
 		return nil, maa.Rect{}, nil
 	}
-	status.Preview = true
-	return &selectionStatus{giftStatus: *status, SelectedCount: &count}, box, nil
+	preview := &selectionStatus{giftStatus: *status, SelectedCount: &count}
+	if final && s.TargetCount > 0 {
+		expected, hit, err := expectedGiftInventory(runner, img, gifts)
+		if err != nil || !hit {
+			return nil, maa.Rect{}, err
+		}
+		preview.ExpectedInventory = expected
+	}
+	preview.Preview = true
+	return preview, box, nil
 }
 
-// readSelectedCount sums every visible selected label, so changing item categories
-// cannot reset the observed total. A single unreadable label invalidates the frame.
+type selectedGift struct {
+	Box   maa.Rect
+	Count int
+}
+
+// readSelectedCount sums every visible selected label across gift categories.
 func readSelectedCount(runner recognitionRunner, img image.Image) (int, bool, error) {
-	detail, err := runner.RunRecognition("GiftOperatorGiftSelectedLabelColor", img)
-	if err != nil || detail == nil || !detail.Hit {
+	gifts, err := readSelectedGifts(runner, img)
+	if err != nil {
 		return 0, false, err
 	}
+	count, err := selectedGiftTotal(gifts)
+	return count, count > 0 && err == nil, err
+}
+
+func selectedGiftTotal(gifts []selectedGift) (int, error) {
+	total := 0
+	for _, gift := range gifts {
+		if gift.Count <= 0 || total > int(^uint(0)>>1)-gift.Count {
+			return 0, fmt.Errorf("invalid or overflowing selected gift quantity")
+		}
+		total += gift.Count
+	}
+	return total, nil
+}
+
+// readSelectedGifts rejects the entire frame if any selected quantity is unreadable.
+func readSelectedGifts(runner recognitionRunner, img image.Image) ([]selectedGift, error) {
+	detail, err := runner.RunRecognition("GiftOperatorGiftSelectedLabelColor", img)
+	if err != nil || detail == nil || !detail.Hit {
+		return nil, err
+	}
 	if detail.Algorithm != "ColorMatch" {
-		return 0, false, fmt.Errorf("selected labels must use ColorMatch")
+		return nil, fmt.Errorf("selected labels must use ColorMatch")
 	}
 	var labels struct {
 		Filtered []maa.ColorMatchResult `json:"filtered"`
 	}
 	if err := json.Unmarshal([]byte(detail.DetailJson), &labels); err != nil {
-		return 0, false, err
+		return nil, err
 	}
 	if len(labels.Filtered) == 0 {
-		return 0, false, nil
+		return nil, nil
 	}
-	total := 0
+	gifts := make([]selectedGift, 0, len(labels.Filtered))
 	seen := make(map[maa.Rect]bool)
 	for _, label := range labels.Filtered {
 		if seen[label.Box] {
@@ -93,7 +135,7 @@ func readSelectedCount(runner recognitionRunner, img image.Image) (int, bool, er
 		seen[label.Box] = true
 		roi, ok := selectedTextROI(label.Box)
 		if !ok || !image.Rect(roi[0], roi[1], roi[0]+roi[2], roi[1]+roi[3]).In(img.Bounds()) {
-			return 0, false, nil
+			return nil, nil
 		}
 		number, err := runner.RunRecognition("GiftOperatorGiftSelectedText", img, map[string]any{
 			"GiftOperatorGiftSelectedText": map[string]any{
@@ -101,23 +143,20 @@ func readSelectedCount(runner recognitionRunner, img image.Image) (int, bool, er
 			},
 		})
 		if err != nil {
-			return 0, false, err
+			return nil, err
 		}
 		text, ok := bestOCRText(number)
 		if !ok {
-			return 0, false, nil
+			return nil, nil
 		}
 		value, err := parseSelectedCount(text)
 		if err != nil {
 			log.Warn().Err(err).Str("component", "GiftOperatorGiftSelectionRecognition").Str("text", text).Interface("roi", roi).Msg("selected quantity is unreadable")
-			return 0, false, nil
+			return nil, nil
 		}
-		if total > int(^uint(0)>>1)-value {
-			return 0, false, fmt.Errorf("selected quantity sum overflows")
-		}
-		total += value
+		gifts = append(gifts, selectedGift{Box: label.Box, Count: value})
 	}
-	return total, total > 0, nil
+	return gifts, nil
 }
 
 // selectedTextROI excludes the icon and the yellow frame below the numeric label.

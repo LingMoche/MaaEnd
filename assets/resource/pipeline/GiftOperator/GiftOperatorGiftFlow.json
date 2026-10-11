@@ -67,7 +67,7 @@
         }
     },
     "GiftOperatorClickGift": {
-        "desc": "每次只选一件，等待收益预览稳定后重新读取选数和累计环",
+        "desc": "每次只选一件，等待预览稳定后重新读取总选数和累计环",
         "recognition": {
             "type": "And",
             "param": {
@@ -476,7 +476,8 @@
             "GiftOperatorSendRoundEntry"
         ],
         "attach": {
-            "target_rings": 3
+            "target_rings": 3,
+            "target_count": 0
         }
     },
     "GiftOperatorSendSelect": {
@@ -834,7 +835,7 @@
         ]
     },
     "GiftOperatorSendAlreadyFull": {
-        "desc": "进入时已满信赖或达到所选累计环数，排除但不扣送礼人数",
+        "desc": "进入时信赖或今日赠礼已满；送满环模式也排除已达目标者，不扣送礼人数",
         "enabled": false,
         "pre_delay": 0,
         "action": {
@@ -853,7 +854,7 @@
         ]
     },
     "GiftOperatorSendCanGift": {
-        "desc": "初始累计环未达目标，开始逐件选礼并核对数量变化",
+        "desc": "该干员可赠礼，按件数或累计环目标逐件选择并核对数量变化",
         "enabled": false,
         "pre_delay": 0,
         "post_delay": 0,
@@ -938,7 +939,7 @@
         ]
     },
     "GiftOperatorSendVerify": {
-        "desc": "重新进入同一人界面，真实环进度达到目标且增加才扣人数；总信赖满200也可完成",
+        "desc": "同人重入后核验实际环目标；自定义数量核对真实库存减少，成功才扣人数",
         "recognition": {
             "type": "Custom",
             "param": {
@@ -1088,7 +1089,7 @@
         "post_delay": 0,
         "rate_limit": 0,
         "next": [
-            "GiftOperatorConfirmGift"
+            "GiftOperatorSendFreezeSelection"
         ]
     },
     "GiftOperatorDailyLimitFirstLine": {
@@ -1275,7 +1276,7 @@
         "rate_limit": 0
     },
     "GiftOperatorSendSelectionProgress": {
-        "desc": "确认总选数已增加，读取预览环并决定继续选礼或提交",
+        "desc": "确认总选数已增加，按自定义件数或累计环决定继续选礼或提交",
         "recognition": {
             "type": "Custom",
             "param": {
@@ -1300,17 +1301,17 @@
         ]
     },
     "GiftOperatorSendSelectionReady": {
-        "desc": "预览已达到所选环数或总信赖上限，确认赠送",
+        "desc": "预览已达到件数或环目标，或真实信赖预览封顶；冻结最终选择后提交",
         "enabled": false,
         "pre_delay": 0,
         "post_delay": 0,
         "rate_limit": 0,
         "next": [
-            "GiftOperatorConfirmGift"
+            "GiftOperatorSendFreezeSelection"
         ]
     },
     "GiftOperatorSendSelectionMore": {
-        "desc": "数量与预览已重新确认，累计环未达目标，选择下一件",
+        "desc": "数量与预览已重新确认，件数或累计环未达目标，选择下一件",
         "enabled": false,
         "pre_delay": 0,
         "post_delay": 0,
@@ -1376,5 +1377,42 @@
         "attach": {
             "ready": false
         }
+    },
+    "GiftOperatorSendFreezeSelection": {
+        "desc": "提交前重新核对最终选数；自定义件数同时冻结预期送后库存，不把预览记为成功",
+        "recognition": {
+            "type": "Custom",
+            "param": {"custom_recognition": "GiftOperatorGiftSelectionRecognition"}
+        },
+        "pre_delay": 0,
+        "action": {
+            "type": "Custom",
+            "param": {
+                "custom_action": "GiftOperatorSessionAction",
+                "custom_action_param": {"operation": "freeze_selection"}
+            }
+        },
+        "post_delay": 0,
+        "rate_limit": 0,
+        "next": ["GiftOperatorConfirmGift"]
+    },
+    "GiftOperatorGiftInventoryText": {
+        "desc": "礼物卡片底部完整库存数，包括零库存；每列单独识别，不把缺失数字补为零",
+        "recognition": {
+            "type": "OCR",
+            "param": {
+                "roi": [
+                    158,
+                    592,
+                    46,
+                    27
+                ],
+                "expected": ["^[0-9]+$"],
+                "only_rec": true
+            }
+        },
+        "pre_delay": 0,
+        "post_delay": 0,
+        "rate_limit": 0
     }
 }

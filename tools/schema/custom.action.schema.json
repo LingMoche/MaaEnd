@@ -118,6 +118,7 @@
                                     "observe_before",
                                     "observe_after",
                                     "observe_selection",
+                                    "freeze_selection",
                                     "reject",
                                     "finish"
                                 ]

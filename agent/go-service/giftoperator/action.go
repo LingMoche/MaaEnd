@@ -111,7 +111,7 @@ func updateSession(store nodeStore, param sessionActionParam, detail *maa.Recogn
 		}
 		s.EncounteredName = ""
 		s.Prepared = false
-	case "observe_before", "observe_after", "observe_selection":
+	case "observe_before", "observe_after", "observe_selection", "freeze_selection":
 		var status selectionStatus
 		if err := decodeCustomDetail(detail, &status); err != nil {
 			return err
@@ -138,7 +138,7 @@ func updateSession(store nodeStore, param sessionActionParam, detail *maa.Recogn
 }
 
 func applyGiftObservation(store nodeStore, s *session, operation string, status selectionStatus) error {
-	if operation != "observe_selection" && status.Preview {
+	if operation != "observe_selection" && operation != "freeze_selection" && status.Preview {
 		return fmt.Errorf("gift preview cannot confirm actual progress")
 	}
 	if s.Generic && !status.IdentityMatch {
@@ -176,24 +176,52 @@ func applyGiftObservation(store nodeStore, s *session, operation string, status 
 			return err
 		}
 		return setGiftEligibility(store, s.Prepared, !s.Prepared, false)
-	case "observe_selection":
+	case "observe_selection", "freeze_selection":
 		if !status.Preview || status.SelectedCount == nil {
 			return fmt.Errorf("gift selection must include preview and selected count")
 		}
-		ready, err := s.observeSelection(*status.Trust, rings, *status.SelectedCount)
+		var expected []int
+		if s.TargetCount > 0 {
+			if operation == "freeze_selection" {
+				var err error
+				expected, err = sortedGiftInventory(status.ExpectedInventory)
+				if err != nil {
+					return fmt.Errorf("gift selection inventory: %w", err)
+				}
+			} else if status.ExpectedInventory != nil {
+				return fmt.Errorf("ordinary selection must not freeze gift inventory")
+			}
+		}
+		var ready bool
+		var err error
+		if operation == "freeze_selection" {
+			ready, err = s.freezeSelection(*status.Trust, rings, *status.SelectedCount)
+		} else {
+			ready, err = s.observeSelection(*status.Trust, rings, *status.SelectedCount)
+		}
 		if err != nil {
 			return err
 		}
+		s.ExpectedInventory = expected
 		log.Info().Str("component", "GiftOperatorSessionAction").Str("operator", s.Pending).
-			Int("selected_count", s.SelectedCount).Int("preview_rings", rings).Bool("ready", ready).Msg("observed selected gift total")
+			Str("operation", operation).
+			Int("selected_count", s.SelectedCount).Int("target_count", s.TargetCount).
+			Int("preview_rings", rings).Bool("ready", ready).Msg("observed selected gift total")
 		return setSelectionReadiness(store, ready, !ready)
 	case "observe_after":
-		committed, err := s.commitAfter(*status.Trust, rings)
+		var committed bool
+		var err error
+		if s.TargetCount > 0 {
+			committed, err = s.commitCountAfter(*status.Trust, rings, status.Inventory)
+		} else {
+			committed, err = s.commitAfter(*status.Trust, rings)
+		}
 		if err != nil {
 			return err
 		}
 		log.Info().Str("component", "GiftOperatorSessionAction").Str("operator", s.Pending).
-			Int("remaining", s.Remaining).Int("target_rings", s.TargetRings).Int("completed_rings", rings).
+			Int("remaining", s.Remaining).Int("target_rings", s.TargetRings).Int("target_count", s.TargetCount).
+			Int("selected_count", s.SelectedCount).Int("completed_rings", rings).
 			Bool("rings_known", status.CompletedRings != nil).Bool("committed", committed).Msg("confirmed gift result")
 		return nil
 	default:

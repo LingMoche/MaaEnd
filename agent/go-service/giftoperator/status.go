@@ -24,6 +24,7 @@ type giftStatus struct {
 	Limited        *bool  `json:"limited"`
 	Name           string `json:"name,omitempty"`
 	IdentityMatch  bool   `json:"identity_match"`
+	Inventory      []int  `json:"inventory,omitempty"`
 }
 
 // Run validates recipient identity and returns stable gift-screen status.
@@ -139,6 +140,13 @@ func readGiftStatus(runner portraitRunner, img image.Image, s session, verify, a
 		if status.CompletedRings == nil && trust != 200 {
 			return nil, maa.Rect{}, nil
 		}
+	}
+	if verify && !allowSelection && s.TargetCount > 0 {
+		inventory, hit, err := readGiftInventory(runner, img)
+		if err != nil || !hit {
+			return nil, maa.Rect{}, err
+		}
+		status.Inventory = inventory
 	}
 	return &status, detail.Box, nil
 }
