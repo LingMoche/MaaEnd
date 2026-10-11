@@ -33,6 +33,8 @@ on:
 
 jobs:
   meta:
+    # This fork ships the customized updater through lingmoche-build.yml.
+    if: github.repository != 'LingMoche/MaaEnd'
     runs-on: ubuntu-latest
     permissions:
       contents: read

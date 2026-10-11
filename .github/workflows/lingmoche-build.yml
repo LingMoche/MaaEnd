@@ -1,0 +1,264 @@
+name: Build MaaEnd-LingMoche
+
+on:
+    push:
+        branches:
+            - codex/personal-v2
+        paths:
+            - .github/workflows/lingmoche-build.yml
+            - assets/**
+            - agent/**
+            - tools/setup/**
+            - tools/lingmoche/**
+            - tools/maadeps-download.py
+            - tools/merge_pipeline.py
+            - tools/check_maautils_sync.py
+            - tests/MapNavmeshConnectivity/navmesh_connectivity.json
+            - .gitmodules
+    workflow_dispatch:
+        inputs:
+            version:
+                description: "Fork version, increase the final number for each release"
+                required: true
+                type: string
+                default: v2.33.0-beta.2.lingmoche.1
+
+permissions:
+    contents: read
+
+concurrency:
+    group: lingmoche-build-${{ github.ref }}
+    cancel-in-progress: true
+
+env:
+    MAAFW_VERSION: v5.14.3
+    MXU_VERSION: v2.7.1
+    MXU_COMMIT: 9fa8cc51e8ff8cd89d99f3ea55fe3a7a82e6ede3
+    MXU_BUILD_VERSION: 2.7.1-lingmoche.1
+    BUILD_VERSION: ${{ inputs.version || 'v2.33.0-beta.2.lingmoche.1' }}
+    PYTHONIOENCODING: utf-8
+    PYTHONUNBUFFERED: "1"
+
+jobs:
+    meta:
+        if: github.repository == 'LingMoche/MaaEnd'
+        runs-on: ubuntu-latest
+        outputs:
+            source_commit: ${{ steps.source.outputs.commit }}
+        steps:
+            - uses: actions/checkout@v6
+            - name: Validate version and resolve source
+              id: source
+              shell: bash
+              run: |
+                  python - <<'PY'
+                  import os
+                  import re
+
+                  version = os.environ["BUILD_VERSION"]
+                  if not re.fullmatch(r"v\d+\.\d+\.\d+(?:-(?:beta|rc)\.\d+(?:\.lingmoche\.\d+)?)?", version):
+                      raise SystemExit("Use vX.Y.Z or vX.Y.Z-beta.N.lingmoche.N")
+                  if any(marker in version.lower() for marker in ("ci", "test", "debug")):
+                      raise SystemExit("MXU disables updates for ci/test version stamps")
+                  PY
+                  echo "commit=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+    native:
+        needs: meta
+        runs-on: windows-latest
+        steps:
+            - uses: actions/checkout@v6
+              with:
+                  ref: ${{ needs.meta.outputs.source_commit }}
+            - name: Initialize build and model submodules
+              run: git submodule update --init --depth 1 agent/cpp-algo/MaaUtils assets/resource/model
+            - uses: actions/setup-python@v6
+              with:
+                  python-version: "3.12"
+            - uses: actions/setup-go@v6
+              with:
+                  go-version-file: agent/go-service/go.mod
+                  cache-dependency-path: agent/go-service/go.sum
+            - name: Prepare native dependencies
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              run: |
+                  python -m pip install json5
+                  python tools/check_maautils_sync.py --maafw-ref "$env:MAAFW_VERSION"
+                  if ($LASTEXITCODE -ne 0) { throw "MaaUtils does not match the pinned MaaFramework" }
+                  python tools/maadeps-download.py x64-windows
+                  if ($LASTEXITCODE -ne 0) { throw "MaaDeps download failed" }
+                  python -m tools.setup.dep_3rdparty --webview2
+                  if ($LASTEXITCODE -ne 0) { throw "WebView2 SDK preparation failed" }
+            - name: Download pinned MaaFramework
+              env:
+                  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              run: |
+                  gh release download "$env:MAAFW_VERSION" --repo MaaXYZ/MaaFramework --pattern "MAA-win-x86_64-*.zip" --dir deps
+                  if ($LASTEXITCODE -ne 0) { throw "MaaFramework download failed" }
+                  $archives = @(Get-ChildItem -LiteralPath deps -Filter "*.zip")
+                  if ($archives.Count -ne 1) { throw "Expected one MaaFramework archive" }
+                  Expand-Archive -LiteralPath $archives[0].FullName -DestinationPath deps
+            - name: Test gift recipient logic
+              working-directory: agent/go-service
+              run: go test ./giftoperator
+            - name: Compile agents and copy resources
+              run: |
+                  python -m tools.setup.build_and_install --cpp-algo --ci --os win --arch x86_64 --version "$env:BUILD_VERSION"
+                  if ($LASTEXITCODE -ne 0) { throw "Native build failed" }
+                  Copy-Item -Path deps/bin/* -Destination install/maafw -Recurse
+                  Copy-Item -LiteralPath deps/share/MaaAgentBinary -Destination install/maafw -Recurse
+                  $installRoot = (Resolve-Path install).Path
+                  Get-ChildItem -LiteralPath install/maafw -Filter "MaaNode*" | ForEach-Object {
+                      if (-not $_.FullName.StartsWith("$installRoot\", [StringComparison]::OrdinalIgnoreCase)) {
+                          throw "Cleanup target is outside the build install directory"
+                      }
+                      Remove-Item -LiteralPath $_.FullName -Recurse -Force
+                  }
+                  python tools/merge_pipeline.py install
+                  if ($LASTEXITCODE -ne 0) { throw "Pipeline merge failed" }
+                  $metadata = [ordered]@{
+                      source_commit = git rev-parse HEAD
+                      build_version = $env:BUILD_VERSION
+                      model_commit = git -C assets/resource/model rev-parse HEAD
+                      maafw_version = $env:MAAFW_VERSION
+                      maautils_commit = git -C agent/cpp-algo/MaaUtils rev-parse HEAD
+                      maadeps_version = python -c "import ast,pathlib; tree=ast.parse(pathlib.Path('tools/maadeps-download.py').read_text()); print(next(ast.literal_eval(node.value) for node in tree.body if isinstance(node, ast.Assign) and any(isinstance(target, ast.Name) and target.id == 'VERSION' for target in node.targets)))"
+                      go_version = go version
+                      go_binary_metadata = @(go version -m install/agent/go-service.exe)
+                      giftoperator_tests = "passed"
+                      agents = "Compiled from this source checkout"
+                  }
+                  $metadata | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath install/BUILD_NATIVE_SOURCE.json -Encoding utf8NoBOM
+            - uses: actions/upload-artifact@v6
+              with:
+                  name: lingmoche-native-win-x86_64
+                  path: install
+                  if-no-files-found: error
+                  retention-days: 7
+
+    gui:
+        needs: meta
+        runs-on: windows-latest
+        steps:
+            - uses: actions/checkout@v6
+              with:
+                  ref: ${{ needs.meta.outputs.source_commit }}
+            - uses: actions/checkout@v6
+              with:
+                  repository: MistEO/MXU
+                  ref: 9fa8cc51e8ff8cd89d99f3ea55fe3a7a82e6ede3
+                  path: downloads/MXU
+                  persist-credentials: false
+            - uses: pnpm/action-setup@v4
+              with:
+                  version: 10.28.0
+            - uses: actions/setup-node@v6
+              with:
+                  node-version: "24"
+                  cache: pnpm
+                  cache-dependency-path: downloads/MXU/pnpm-lock.yaml
+            - uses: dtolnay/rust-toolchain@stable
+            - uses: Swatinem/rust-cache@v2
+              with:
+                  workspaces: downloads/MXU/src-tauri -> target
+                  cache-on-failure: true
+            - name: Apply fork updater patch and stamp GUI version
+              run: |
+                  $patch = Join-Path $env:GITHUB_WORKSPACE "tools/lingmoche/mxu-github-updater.patch"
+                  git -C downloads/MXU apply --check "$patch"
+                  if ($LASTEXITCODE -ne 0) { throw "MXU updater patch no longer applies" }
+                  git -C downloads/MXU apply "$patch"
+                  if ($LASTEXITCODE -ne 0) { throw "MXU updater patch failed" }
+                  $env:MXU_SOURCE = (Resolve-Path downloads/MXU).Path
+                  node --input-type=module -e '
+                    import fs from "node:fs";
+                    import path from "node:path";
+                    const root = process.env.MXU_SOURCE;
+                    for (const relative of ["package.json", "src-tauri/tauri.conf.json"]) {
+                      const filename = path.join(root, relative);
+                      const data = JSON.parse(fs.readFileSync(filename, "utf8"));
+                      data.version = process.env.MXU_BUILD_VERSION;
+                      fs.writeFileSync(filename, JSON.stringify(data, null, 2) + "\n");
+                    }
+                    const cargo = path.join(root, "src-tauri/Cargo.toml");
+                    const content = fs.readFileSync(cargo, "utf8");
+                    fs.writeFileSync(cargo, content.replace(/^version = "[^"]+"/m, `version = "${process.env.MXU_BUILD_VERSION}"`));
+                  '
+                  if ($LASTEXITCODE -ne 0) { throw "GUI version stamping failed" }
+            - name: Build patched GUI
+              working-directory: downloads/MXU
+              run: |
+                  pnpm install --frozen-lockfile
+                  if ($LASTEXITCODE -ne 0) { throw "GUI dependency installation failed" }
+                  pnpm test
+                  if ($LASTEXITCODE -ne 0) { throw "GUI tests failed" }
+                  cargo test --manifest-path src-tauri/Cargo.toml --lib github_repository
+                  if ($LASTEXITCODE -ne 0) { throw "GUI repository validation tests failed" }
+                  pnpm tauri build --no-bundle
+                  if ($LASTEXITCODE -ne 0) { throw "GUI build failed" }
+            - name: Collect GUI build
+              run: |
+                  New-Item -ItemType Directory -Path compiled-gui | Out-Null
+                  Copy-Item -LiteralPath downloads/MXU/src-tauri/target/release/mxu.exe -Destination compiled-gui/MaaEnd.exe
+                  Copy-Item -LiteralPath downloads/MXU/LICENSE -Destination compiled-gui/MXU-LICENSE.txt
+                  $metadata = [ordered]@{
+                      mxu_version = $env:MXU_VERSION
+                      mxu_commit = git -C downloads/MXU rev-parse HEAD
+                      gui_version = $env:MXU_BUILD_VERSION
+                      patch_sha256 = (Get-FileHash -LiteralPath tools/lingmoche/mxu-github-updater.patch -Algorithm SHA256).Hash.ToLowerInvariant()
+                      node_version = node --version
+                      pnpm_version = pnpm --version
+                      rust_version = rustc --version
+                      tests = "passed"
+                      build = "pnpm tauri build --no-bundle"
+                  }
+                  $metadata | ConvertTo-Json | Set-Content -LiteralPath compiled-gui/BUILD_GUI_SOURCE.json -Encoding utf8NoBOM
+            - uses: actions/upload-artifact@v6
+              with:
+                  name: lingmoche-gui-win-x86_64
+                  path: compiled-gui
+                  if-no-files-found: error
+                  retention-days: 7
+
+    package:
+        needs:
+            - meta
+            - native
+            - gui
+        runs-on: windows-latest
+        steps:
+            - uses: actions/checkout@v6
+              with:
+                  ref: ${{ needs.meta.outputs.source_commit }}
+            - uses: actions/setup-python@v6
+              with:
+                  python-version: "3.12"
+            - uses: actions/download-artifact@v7
+              with:
+                  name: lingmoche-native-win-x86_64
+                  path: install
+            - uses: actions/download-artifact@v7
+              with:
+                  name: lingmoche-gui-win-x86_64
+                  path: compiled-gui
+            - name: Verify runtime, resource hashes and Agents; create portable ZIP
+              run: |
+                  python -m pip install json5 numpy maafw==5.14.3
+                  if ($LASTEXITCODE -ne 0) { throw "Verification dependencies failed" }
+                  python tools/lingmoche/package.py --version "$env:BUILD_VERSION"
+                  if ($LASTEXITCODE -ne 0) { throw "Package verification failed" }
+            - uses: actions/upload-artifact@v6
+              with:
+                  name: MaaEnd-LingMoche-win-x86_64-${{ env.BUILD_VERSION }}
+                  path: artifacts/*
+                  if-no-files-found: error
+                  retention-days: 90
+            - name: Upload build verification and debug symbols
+              if: always()
+              uses: actions/upload-artifact@v6
+              with:
+                  name: lingmoche-build-verification-${{ env.BUILD_VERSION }}
+                  path: build-checks
+                  if-no-files-found: ignore
+                  retention-days: 90
