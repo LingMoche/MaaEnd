@@ -1,0 +1,35 @@
+{
+    "task": [
+        {
+            "name": "ArenaOfGames",
+            "label": "$task.ArenaOfGames.label",
+            "entry": "ArenaOfGamesMain",
+            "description": "$task.ArenaOfGames.description",
+            "group": [
+                "regional_development"
+            ],
+            "controller": [
+                "Linux-Gamescope",
+                "Linux-ScreenCast",
+                "Linux-Wlroots",
+                "Win32-Front"
+            ],
+            "option": [
+                "ArenaOfGamesMode"
+            ]
+        }
+    ],
+    "option": {
+        "ArenaOfGamesMode": {
+            "type": "select",
+            "label": "$option.ArenaOfGamesMode.label",
+            "cases": [
+                {
+                    "name": "FarmStraightFlush",
+                    "label": "$option.ArenaOfGamesMode.cases.FarmStraightFlush.label"
+                }
+            ],
+            "default_case": "FarmStraightFlush"
+        }
+    }
+}

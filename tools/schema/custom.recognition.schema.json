@@ -10,6 +10,7 @@
                 "AeroSalvageBalloonStateRecognition",
                 "AeroSalvageGridRecognition",
                 "AeroSalvageInitialStateRecognition",
+                "ArenaOfGames.CheckStraightFlush",
                 "AutoSellPriceCompareRecognition",
                 "AutoSellScanItemRecognition",
                 "AutoStockpile.Recognition",
@@ -58,6 +59,37 @@
         }
     },
     "allOf": [
+        {
+            "if": {
+                "type": "object",
+                "required": [ "custom_recognition" ],
+                "properties": {
+                    "custom_recognition": { "const": "ArenaOfGames.CheckStraightFlush" }
+                }
+            },
+            "then": {
+                "type": "object",
+                "required": [ "custom_recognition_param" ],
+                "properties": {
+                    "custom_recognition_param": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [ "condition" ],
+                        "properties": {
+                            "condition": {
+                                "type": "string",
+                                "enum": [ "recognized", "continuing", "rejected", "complete" ]
+                            },
+                            "count": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 5
+                            }
+                        }
+                    }
+                }
+            }
+        },
         {
             "if": {
                 "type": "object",

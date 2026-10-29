@@ -1,0 +1,421 @@
+{
+    "ArenaOfGamesMain": {
+        "desc": "百趣演武同花顺任务入口，需先打开抽牌界面",
+        "recognition": {
+            "type": "And",
+            "param": {
+                "all_of": [
+                    "ArenaOfGamesInDrawMenu"
+                ]
+            }
+        },
+        "pre_delay": 0,
+        "action": {
+            "type": "DoNothing"
+        },
+        "post_delay": 0,
+        "rate_limit": 0,
+        "next": [
+            "ArenaOfGamesDispatch"
+        ]
+    },
+    "ArenaOfGamesDispatch": {
+        "desc": "根据已确认的手牌选择下一步",
+        "pre_delay": 0,
+        "action": {
+            "type": "DoNothing"
+        },
+        "post_delay": 0,
+        "rate_limit": 0,
+        "next": [
+            "ArenaOfGamesComplete",
+            "ArenaOfGamesRejected",
+            "ArenaOfGamesDraw0",
+            "ArenaOfGamesDraw1",
+            "ArenaOfGamesDraw2",
+            "ArenaOfGamesDraw3",
+            "ArenaOfGamesDraw4"
+        ]
+    },
+    "ArenaOfGamesComplete": {
+        "desc": "任意花色的1至5点已齐全，保留当前手牌",
+        "recognition": {
+            "type": "Custom",
+            "param": {
+                "custom_recognition": "ArenaOfGames.CheckStraightFlush",
+                "custom_recognition_param": {
+                    "condition": "complete"
+                }
+            }
+        },
+        "pre_delay": 0,
+        "action": {
+            "type": "DoNothing"
+        },
+        "post_delay": 0,
+        "rate_limit": 0,
+        "next": []
+    },
+    "ArenaOfGamesRejected": {
+        "desc": "当前手牌已无法组成同花顺",
+        "recognition": {
+            "type": "Custom",
+            "param": {
+                "custom_recognition": "ArenaOfGames.CheckStraightFlush",
+                "custom_recognition_param": {
+                    "condition": "rejected"
+                }
+            }
+        },
+        "pre_delay": 0,
+        "action": {
+            "type": "DoNothing"
+        },
+        "post_delay": 0,
+        "rate_limit": 0,
+        "next": [
+            "ArenaOfGamesAbandon"
+        ]
+    },
+    "ArenaOfGamesDraw0": {
+        "desc": "已确认0张手牌仍可组成同花顺，抽取下一张",
+        "recognition": {
+            "type": "And",
+            "param": {
+                "all_of": [
+                    {
+                        "recognition": {
+                            "type": "Custom",
+                            "param": {
+                                "custom_recognition": "ArenaOfGames.CheckStraightFlush",
+                                "custom_recognition_param": {
+                                    "condition": "continuing",
+                                    "count": 0
+                                }
+                            }
+                        }
+                    },
+                    "ArenaOfGamesDrawCardButton"
+                ],
+                "box_index": 1
+            }
+        },
+        "pre_delay": 0,
+        "action": {
+            "type": "Click"
+        },
+        "post_delay": 0,
+        "rate_limit": 0,
+        "next": [
+            "ArenaOfGamesWait1"
+        ]
+    },
+    "ArenaOfGamesWait1": {
+        "desc": "等待第1张铭牌完整显示",
+        "recognition": {
+            "type": "Custom",
+            "param": {
+                "custom_recognition": "ArenaOfGames.CheckStraightFlush",
+                "custom_recognition_param": {
+                    "condition": "recognized",
+                    "count": 1
+                }
+            }
+        },
+        "pre_delay": 0,
+        "action": {
+            "type": "DoNothing"
+        },
+        "post_delay": 0,
+        "rate_limit": 0,
+        "next": [
+            "ArenaOfGamesDispatch"
+        ]
+    },
+    "ArenaOfGamesDraw1": {
+        "desc": "已确认1张手牌仍可组成同花顺，抽取下一张",
+        "recognition": {
+            "type": "And",
+            "param": {
+                "all_of": [
+                    {
+                        "recognition": {
+                            "type": "Custom",
+                            "param": {
+                                "custom_recognition": "ArenaOfGames.CheckStraightFlush",
+                                "custom_recognition_param": {
+                                    "condition": "continuing",
+                                    "count": 1
+                                }
+                            }
+                        }
+                    },
+                    "ArenaOfGamesDrawCardButton"
+                ],
+                "box_index": 1
+            }
+        },
+        "pre_delay": 0,
+        "action": {
+            "type": "Click"
+        },
+        "post_delay": 0,
+        "rate_limit": 0,
+        "next": [
+            "ArenaOfGamesWait2"
+        ]
+    },
+    "ArenaOfGamesWait2": {
+        "desc": "等待第2张铭牌完整显示",
+        "recognition": {
+            "type": "Custom",
+            "param": {
+                "custom_recognition": "ArenaOfGames.CheckStraightFlush",
+                "custom_recognition_param": {
+                    "condition": "recognized",
+                    "count": 2
+                }
+            }
+        },
+        "pre_delay": 0,
+        "action": {
+            "type": "DoNothing"
+        },
+        "post_delay": 0,
+        "rate_limit": 0,
+        "next": [
+            "ArenaOfGamesDispatch"
+        ]
+    },
+    "ArenaOfGamesDraw2": {
+        "desc": "已确认2张手牌仍可组成同花顺，抽取下一张",
+        "recognition": {
+            "type": "And",
+            "param": {
+                "all_of": [
+                    {
+                        "recognition": {
+                            "type": "Custom",
+                            "param": {
+                                "custom_recognition": "ArenaOfGames.CheckStraightFlush",
+                                "custom_recognition_param": {
+                                    "condition": "continuing",
+                                    "count": 2
+                                }
+                            }
+                        }
+                    },
+                    "ArenaOfGamesDrawCardButton"
+                ],
+                "box_index": 1
+            }
+        },
+        "pre_delay": 0,
+        "action": {
+            "type": "Click"
+        },
+        "post_delay": 0,
+        "rate_limit": 0,
+        "next": [
+            "ArenaOfGamesWait3"
+        ]
+    },
+    "ArenaOfGamesWait3": {
+        "desc": "等待第3张铭牌完整显示",
+        "recognition": {
+            "type": "Custom",
+            "param": {
+                "custom_recognition": "ArenaOfGames.CheckStraightFlush",
+                "custom_recognition_param": {
+                    "condition": "recognized",
+                    "count": 3
+                }
+            }
+        },
+        "pre_delay": 0,
+        "action": {
+            "type": "DoNothing"
+        },
+        "post_delay": 0,
+        "rate_limit": 0,
+        "next": [
+            "ArenaOfGamesDispatch"
+        ]
+    },
+    "ArenaOfGamesDraw3": {
+        "desc": "已确认3张手牌仍可组成同花顺，抽取下一张",
+        "recognition": {
+            "type": "And",
+            "param": {
+                "all_of": [
+                    {
+                        "recognition": {
+                            "type": "Custom",
+                            "param": {
+                                "custom_recognition": "ArenaOfGames.CheckStraightFlush",
+                                "custom_recognition_param": {
+                                    "condition": "continuing",
+                                    "count": 3
+                                }
+                            }
+                        }
+                    },
+                    "ArenaOfGamesDrawCardButton"
+                ],
+                "box_index": 1
+            }
+        },
+        "pre_delay": 0,
+        "action": {
+            "type": "Click"
+        },
+        "post_delay": 0,
+        "rate_limit": 0,
+        "next": [
+            "ArenaOfGamesWait4"
+        ]
+    },
+    "ArenaOfGamesWait4": {
+        "desc": "等待第4张铭牌完整显示",
+        "recognition": {
+            "type": "Custom",
+            "param": {
+                "custom_recognition": "ArenaOfGames.CheckStraightFlush",
+                "custom_recognition_param": {
+                    "condition": "recognized",
+                    "count": 4
+                }
+            }
+        },
+        "pre_delay": 0,
+        "action": {
+            "type": "DoNothing"
+        },
+        "post_delay": 0,
+        "rate_limit": 0,
+        "next": [
+            "ArenaOfGamesDispatch"
+        ]
+    },
+    "ArenaOfGamesDraw4": {
+        "desc": "已确认4张手牌仍可组成同花顺，抽取下一张",
+        "recognition": {
+            "type": "And",
+            "param": {
+                "all_of": [
+                    {
+                        "recognition": {
+                            "type": "Custom",
+                            "param": {
+                                "custom_recognition": "ArenaOfGames.CheckStraightFlush",
+                                "custom_recognition_param": {
+                                    "condition": "continuing",
+                                    "count": 4
+                                }
+                            }
+                        }
+                    },
+                    "ArenaOfGamesDrawCardButton"
+                ],
+                "box_index": 1
+            }
+        },
+        "pre_delay": 0,
+        "action": {
+            "type": "Click"
+        },
+        "post_delay": 0,
+        "rate_limit": 0,
+        "next": [
+            "ArenaOfGamesWait5"
+        ]
+    },
+    "ArenaOfGamesWait5": {
+        "desc": "等待第5张铭牌完整显示",
+        "recognition": {
+            "type": "Custom",
+            "param": {
+                "custom_recognition": "ArenaOfGames.CheckStraightFlush",
+                "custom_recognition_param": {
+                    "condition": "recognized",
+                    "count": 5
+                }
+            }
+        },
+        "pre_delay": 0,
+        "action": {
+            "type": "DoNothing"
+        },
+        "post_delay": 0,
+        "rate_limit": 0,
+        "next": [
+            "ArenaOfGamesDispatch"
+        ]
+    },
+    "ArenaOfGamesAbandon": {
+        "desc": "重新识别放弃挑战按钮并点击",
+        "recognition": {
+            "type": "And",
+            "param": {
+                "all_of": [
+                    "ArenaOfGamesInDrawMenu",
+                    "ArenaOfGamesAbandonButton"
+                ],
+                "box_index": 1
+            }
+        },
+        "pre_delay": 0,
+        "action": {
+            "type": "Click"
+        },
+        "post_delay": 0,
+        "rate_limit": 0,
+        "next": [
+            "ArenaOfGamesAbandonConfirm"
+        ]
+    },
+    "ArenaOfGamesAbandonConfirm": {
+        "desc": "确认百趣演武的放弃挑战弹窗",
+        "recognition": {
+            "type": "And",
+            "param": {
+                "all_of": [
+                    "ArenaOfGamesAbandonPopupText",
+                    "YellowConfirmButtonType1"
+                ],
+                "box_index": 1
+            }
+        },
+        "pre_delay": 0,
+        "action": {
+            "type": "Click"
+        },
+        "post_delay": 0,
+        "rate_limit": 0,
+        "next": [
+            "ArenaOfGamesWaitEmpty"
+        ]
+    },
+    "ArenaOfGamesWaitEmpty": {
+        "desc": "等待确认放弃后重置为空手",
+        "recognition": {
+            "type": "Custom",
+            "param": {
+                "custom_recognition": "ArenaOfGames.CheckStraightFlush",
+                "custom_recognition_param": {
+                    "condition": "recognized",
+                    "count": 0
+                }
+            }
+        },
+        "pre_delay": 0,
+        "action": {
+            "type": "DoNothing"
+        },
+        "post_delay": 0,
+        "rate_limit": 0,
+        "next": [
+            "ArenaOfGamesDispatch"
+        ]
+    }
+}
