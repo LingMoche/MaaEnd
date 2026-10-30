@@ -40,14 +40,16 @@ type handDetail struct {
 	Category string      `json:"category"`
 }
 
-// category 按「高等级牌型覆盖低等级」排序，值越大等级越高，一手牌同时只会有一种生效。
+// category 按游戏加成倍率从低到高排序，值越大等级越高，一手牌同时只会有一种生效
+// （高倍率覆盖低倍率，如一色的 3+2 记同花而非葫芦）：
+// 对子 1.2 < 两对 1.4 < 三条 1.6 < 顺子 1.8 < 葫芦 2 < 同花 4 < 四条 6 < 同花顺 8。
 type category int
 
 const (
 	catNone category = iota
 	catPair
-	catThreeOfAKind
 	catTwoPair
+	catThreeOfAKind
 	catStraight
 	catFullHouse
 	catFlush
@@ -59,8 +61,8 @@ const (
 // dailyHandNames 读取时做键集全等校验，漂移即报错。
 var categoryKeys = map[string]category{
 	"pair":            catPair,
-	"three_of_a_kind": catThreeOfAKind,
 	"two_pair":        catTwoPair,
+	"three_of_a_kind": catThreeOfAKind,
 	"straight":        catStraight,
 	"full_house":      catFullHouse,
 	"flush":           catFlush,
@@ -558,7 +560,8 @@ func handCounts(detail handDetail) [15]int {
 	return counts
 }
 
-// categoryOf 按「高等级覆盖低等级」判定牌面计数下唯一生效的牌型。
+// categoryOf 按「高倍率覆盖低倍率」（同花顺 8 → 四条 6 → 同花 4 → 葫芦 2 →
+// 顺子 1.8 → 三条 1.6 → 两对 1.4 → 对子 1.2）判定牌面计数下唯一生效的牌型。
 func categoryOf(counts [15]int) category {
 	var points [6]int
 	var suits [3]int
@@ -616,6 +619,12 @@ func categoryOf(counts [15]int) category {
 		(points[2] > 0 && points[3] > 0 && points[4] > 0 && points[5] > 0) {
 		return catStraight
 	}
+	// 三条：不限花色，三张点数相同。
+	for p := 1; p <= 5; p++ {
+		if points[p] >= 3 {
+			return catThreeOfAKind
+		}
+	}
 	// 两对：不限花色，两组同点数，组间点数不能相同。
 	pairs := 0
 	for p := 1; p <= 5; p++ {
@@ -625,12 +634,6 @@ func categoryOf(counts [15]int) category {
 	}
 	if pairs >= 2 {
 		return catTwoPair
-	}
-	// 三条：不限花色，三张点数相同。
-	for p := 1; p <= 5; p++ {
-		if points[p] >= 3 {
-			return catThreeOfAKind
-		}
 	}
 	// 对子：不限花色，两张点数相同。
 	for p := 1; p <= 5; p++ {

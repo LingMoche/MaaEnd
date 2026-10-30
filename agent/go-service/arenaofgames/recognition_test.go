@@ -146,6 +146,9 @@ func TestEvaluateHand(t *testing.T) {
 		{"quad rejected at three singles", []handSlot{{Type: D, Point: 1}, {Type: B, Point: 2}, {Type: C, Point: 3}}, targets(catFourOfAKind), "rejected"},
 		{"quad continuing at triplet plus single", []handSlot{{Type: D, Point: 2}, {Type: B, Point: 2}, {Type: C, Point: 2}, {Type: D, Point: 5}}, targets(catFourOfAKind), "continuing"},
 		{"full house complete", []handSlot{{Type: D, Point: 3}, {Type: B, Point: 3}, {Type: C, Point: 3}, {Type: D, Point: 5}, {Type: B, Point: 5}}, targets(catFullHouse), "complete"},
+		// 加成倍率序：同花(4)高于葫芦(2)，一色的 3+2 按高倍率记同花而非葫芦。
+		{"one-suit triplet plus pair counts as flush", []handSlot{{Type: D, Point: 3}, {Type: D, Point: 3}, {Type: D, Point: 3}, {Type: D, Point: 4}, {Type: D, Point: 4}}, targets(catFlush), "complete"},
+		{"one-suit triplet plus pair not full house", []handSlot{{Type: D, Point: 3}, {Type: D, Point: 3}, {Type: D, Point: 3}, {Type: D, Point: 4}, {Type: D, Point: 4}}, targets(catFullHouse), "rejected"},
 		{"full house continuing at triplet plus single", []handSlot{{Type: D, Point: 3}, {Type: B, Point: 3}, {Type: C, Point: 3}, {Type: D, Point: 5}}, targets(catFullHouse), "continuing"},
 		{"full house continuing at two singles", []handSlot{{Type: D, Point: 3}, {Type: B, Point: 3}}, targets(catFullHouse), "continuing"},
 		{"full house rejected at quad", []handSlot{{Type: D, Point: 3}, {Type: B, Point: 3}, {Type: C, Point: 3}, {Type: D, Point: 3}}, targets(catFullHouse), "rejected"},
