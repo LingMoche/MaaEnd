@@ -15,7 +15,7 @@ import (
 
 const (
 	component     = "ArenaOfGames.CheckHand"
-	targetNode    = "ArenaOfGamesDispatch"
+	targetNode    = "ArenaOfGamesDecide"
 	dailyHandNode = "ArenaOfGamesDailyHandText"
 )
 
@@ -191,7 +191,7 @@ func (p recognitionParam) matches(detail handDetail, status string) bool {
 		(p.Condition == "recognized" || p.Condition == status)
 }
 
-// targetAttach 是 ArenaOfGamesDispatch 节点 attach 的结构，由界面勾选的选项写入。
+// targetAttach 是 ArenaOfGamesDecide 节点 attach 的结构，由界面勾选的选项写入。
 type targetAttach struct {
 	HandOfToday   bool `json:"hand_of_today"`
 	StraightFlush bool `json:"straight_flush"`

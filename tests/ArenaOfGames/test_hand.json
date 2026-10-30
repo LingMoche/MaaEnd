@@ -68,25 +68,43 @@
             "hits": [
                 "ArenaOfGamesHandCharacter2",
                 "ArenaOfGamesHandBamboo1",
-                "ArenaOfGamesCardBack"
+                "ArenaOfGamesCardBack",
+                "ArenaOfGamesBackSlot3",
+                "ArenaOfGamesBackSlot4",
+                "ArenaOfGamesBackSlot5"
             ]
         },
         {
             "image": "百趣演武_空手_抽牌常态.png",
             "hits": [
-                "ArenaOfGamesCardBack"
+                "ArenaOfGamesCardBack",
+                "ArenaOfGamesBackSlot1",
+                "ArenaOfGamesBackSlot2",
+                "ArenaOfGamesBackSlot3",
+                "ArenaOfGamesBackSlot4",
+                "ArenaOfGamesBackSlot5"
             ]
         },
         {
             "image": "百趣演武_空手_抽牌悬停.png",
             "hits": [
-                "ArenaOfGamesCardBack"
+                "ArenaOfGamesCardBack",
+                "ArenaOfGamesBackSlot1",
+                "ArenaOfGamesBackSlot2",
+                "ArenaOfGamesBackSlot3",
+                "ArenaOfGamesBackSlot4",
+                "ArenaOfGamesBackSlot5"
             ]
         },
         {
             "image": "百趣演武_英文_空手.png",
             "hits": [
-                "ArenaOfGamesCardBack"
+                "ArenaOfGamesCardBack",
+                "ArenaOfGamesBackSlot1",
+                "ArenaOfGamesBackSlot2",
+                "ArenaOfGamesBackSlot3",
+                "ArenaOfGamesBackSlot4",
+                "ArenaOfGamesBackSlot5"
             ]
         },
         {

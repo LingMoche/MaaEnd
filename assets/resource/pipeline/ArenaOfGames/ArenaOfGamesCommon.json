@@ -694,5 +694,100 @@
         "pre_delay": 0,
         "post_delay": 0,
         "rate_limit": 0
+    },
+    "ArenaOfGamesBackSlot1": {
+        "desc": "第1槽空位背面锚点，背面消失即该槽已抽出铭牌",
+        "recognition": {
+            "type": "TemplateMatch",
+            "param": {
+                "roi": [
+                    114,
+                    260,
+                    150,
+                    60
+                ],
+                "template": "ArenaOfGames/CardBack.png",
+                "threshold": 0.9
+            }
+        },
+        "pre_delay": 0,
+        "post_delay": 0,
+        "rate_limit": 0
+    },
+    "ArenaOfGamesBackSlot2": {
+        "desc": "第2槽空位背面锚点，背面消失即该槽已抽出铭牌",
+        "recognition": {
+            "type": "TemplateMatch",
+            "param": {
+                "roi": [
+                    298,
+                    260,
+                    150,
+                    60
+                ],
+                "template": "ArenaOfGames/CardBack.png",
+                "threshold": 0.9
+            }
+        },
+        "pre_delay": 0,
+        "post_delay": 0,
+        "rate_limit": 0
+    },
+    "ArenaOfGamesBackSlot3": {
+        "desc": "第3槽空位背面锚点，背面消失即该槽已抽出铭牌",
+        "recognition": {
+            "type": "TemplateMatch",
+            "param": {
+                "roi": [
+                    482,
+                    260,
+                    150,
+                    60
+                ],
+                "template": "ArenaOfGames/CardBack.png",
+                "threshold": 0.9
+            }
+        },
+        "pre_delay": 0,
+        "post_delay": 0,
+        "rate_limit": 0
+    },
+    "ArenaOfGamesBackSlot4": {
+        "desc": "第4槽空位背面锚点，背面消失即该槽已抽出铭牌",
+        "recognition": {
+            "type": "TemplateMatch",
+            "param": {
+                "roi": [
+                    666,
+                    260,
+                    150,
+                    60
+                ],
+                "template": "ArenaOfGames/CardBack.png",
+                "threshold": 0.9
+            }
+        },
+        "pre_delay": 0,
+        "post_delay": 0,
+        "rate_limit": 0
+    },
+    "ArenaOfGamesBackSlot5": {
+        "desc": "第5槽空位背面锚点，背面消失即该槽已抽出铭牌",
+        "recognition": {
+            "type": "TemplateMatch",
+            "param": {
+                "roi": [
+                    850,
+                    260,
+                    150,
+                    60
+                ],
+                "template": "ArenaOfGames/CardBack.png",
+                "threshold": 0.9
+            }
+        },
+        "pre_delay": 0,
+        "post_delay": 0,
+        "rate_limit": 0
     }
 }

@@ -28,7 +28,7 @@
                     "name": "HandOfToday",
                     "label": "$option.ArenaOfGamesTarget.cases.HandOfToday.label",
                     "pipeline_override": {
-                        "ArenaOfGamesDispatch": {
+                        "ArenaOfGamesDecide": {
                             "attach": {
                                 "hand_of_today": true
                             }
@@ -39,7 +39,7 @@
                     "name": "Flush",
                     "label": "$option.ArenaOfGamesTarget.cases.Flush.label",
                     "pipeline_override": {
-                        "ArenaOfGamesDispatch": {
+                        "ArenaOfGamesDecide": {
                             "attach": {
                                 "flush": true
                             }
@@ -50,7 +50,7 @@
                     "name": "FullHouse",
                     "label": "$option.ArenaOfGamesTarget.cases.FullHouse.label",
                     "pipeline_override": {
-                        "ArenaOfGamesDispatch": {
+                        "ArenaOfGamesDecide": {
                             "attach": {
                                 "full_house": true
                             }
@@ -61,7 +61,7 @@
                     "name": "FourOfAKind",
                     "label": "$option.ArenaOfGamesTarget.cases.FourOfAKind.label",
                     "pipeline_override": {
-                        "ArenaOfGamesDispatch": {
+                        "ArenaOfGamesDecide": {
                             "attach": {
                                 "four_of_a_kind": true
                             }
@@ -72,7 +72,7 @@
                     "name": "StraightFlush",
                     "label": "$option.ArenaOfGamesTarget.cases.StraightFlush.label",
                     "pipeline_override": {
-                        "ArenaOfGamesDispatch": {
+                        "ArenaOfGamesDecide": {
                             "attach": {
                                 "straight_flush": true
                             }
