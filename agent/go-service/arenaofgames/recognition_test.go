@@ -208,7 +208,6 @@ func TestParseParamsAndMatchCount(t *testing.T) {
 }
 
 func TestGameDayBoundaryAtFourOClock(t *testing.T) {
-	local := time.FixedZone("local", 8*3600)
 	for _, tc := range []struct {
 		hhmm string
 		want int
@@ -224,7 +223,9 @@ func TestGameDayBoundaryAtFourOClock(t *testing.T) {
 		if _, err := fmt.Sscanf(tc.hhmm, "%d:%d", &hh, &mm); err != nil {
 			t.Fatal(err)
 		}
-		now := time.Date(2026, 10, 31, hh, mm, 0, 0, local)
+		// 时刻必须以 time.Local 构造：gameDay 按系统本地钟判界，若用 FixedZone
+		// 构造，非该时区的机器（如 UTC 的 CI）会把同一时刻换算成别的钟点而误判。
+		now := time.Date(2026, 10, 31, hh, mm, 0, 0, time.Local)
 		if got := gameDay(now); got != tc.want {
 			t.Fatalf("gameDay(%s) = %d; want %d", tc.hhmm, got, tc.want)
 		}
