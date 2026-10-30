@@ -25,8 +25,7 @@ var _ maa.CustomRecognitionRunner = &Recognition{}
 type Recognition struct{}
 
 type recognitionParam struct {
-	Condition string `json:"condition"`
-	Count     *int   `json:"count,omitempty"`
+	Count *int `json:"count,omitempty"`
 }
 
 type handSlot struct {
@@ -56,7 +55,8 @@ const (
 	catStraightFlush
 )
 
-// categoryKeys 与 ArenaOfGamesDailyHandText 节点 attach 的键保持一致。
+// categoryKeys 与 ArenaOfGamesDailyHandText 节点 attach 的键保持一致，
+// dailyHandNames 读取时做键集全等校验，漂移即报错。
 var categoryKeys = map[string]category{
 	"pair":            catPair,
 	"three_of_a_kind": catThreeOfAKind,
@@ -91,16 +91,25 @@ type recognitionSource interface {
 // 无需加锁：MaaFramework 保证任务回调单线程。
 type dailyHandState struct {
 	category category
-	day      int  // 解析时的本地日期（YYYYMMDD）
+	day      int  // 解析时的游戏日（YYYYMMDD，04:00 切日）
 	set      bool // 显式标志而非零值哨兵：缓存缺失与缓存空值必须可区分
 }
 
 var dailyHand = &dailyHandState{}
 
-// localDay 给出当前本地日期的 YYYYMMDD 整数，仅用于缓存过期判断。
-func localDay() int {
-	year, month, day := time.Now().Date()
-	return year*10000 + int(month)*100 + day
+// 游戏内每日内容（含今日好运牌型）在本地时间 04:00 轮换，与 creditshopping、
+// common/schedule 的游戏日边界保持一致。
+const gameDayBoundaryHour = 4
+
+// gameDay 给出「游戏日」（当日 04:00 至次日 04:00 为同一天）的 YYYYMMDD 整数，
+// 仅用于缓存过期判断。今日好运按游戏日轮换：00:00-03:59 读到的牌型到 04:00 即过期，
+// 若按自然日戳缓存，凌晨跑的任务会把昨日的牌型供给 04:00 之后的整个白天。
+func gameDay(now time.Time) int {
+	t := now.Local()
+	if t.Hour() < gameDayBoundaryHour {
+		t = t.AddDate(0, 0, -1)
+	}
+	return t.Year()*10000 + int(t.Month())*100 + t.Day()
 }
 
 func (s *dailyHandState) get(day int) (category, bool) {
@@ -112,7 +121,7 @@ func (s *dailyHandState) get(day int) (category, bool) {
 
 func (s *dailyHandState) store(c category) {
 	s.category = c
-	s.day = localDay()
+	s.day = gameDay(time.Now())
 	s.set = true
 }
 
@@ -125,7 +134,7 @@ func (s *dailyHandState) reset() {
 	log.Debug().Str("component", component).Msg("daily hand cache reset")
 }
 
-// Run 从本次截图识别手牌，只有完整识别且满足 condition、count 时才命中。
+// Run 从本次截图识别手牌，完整识别且满足 count 时才命中。
 func (r *Recognition) Run(ctx *maa.Context, arg *maa.CustomRecognitionArg) (*maa.CustomRecognitionResult, bool) {
 	if ctx == nil || arg == nil || arg.Img == nil {
 		log.Debug().Str("component", component).Msg("recognition context or image is unavailable")
@@ -133,7 +142,12 @@ func (r *Recognition) Run(ctx *maa.Context, arg *maa.CustomRecognitionArg) (*maa
 	}
 	params, err := parseParams(arg.CustomRecognitionParam)
 	if err != nil {
-		log.Debug().Err(err).Str("component", component).Msg("invalid hand condition")
+		log.Debug().Err(err).Str("component", component).Msg("invalid hand params")
+		return nil, false
+	}
+	// 等待空手（count==0）时先走牌背快速通道：有槽未回背必非空手，省掉 15 次牌面扫描。
+	if params.Count != nil && *params.Count == 0 && !handAllBack(ctx, arg.Img) {
+		log.Debug().Str("component", component).Msg("hand is not empty yet")
 		return nil, false
 	}
 	detail, err := recognizeHand(ctx, arg.Img)
@@ -144,19 +158,10 @@ func (r *Recognition) Run(ctx *maa.Context, arg *maa.CustomRecognitionArg) (*maa
 	if detail.Count == 0 {
 		dailyHand.reset()
 	}
-	status := ""
-	if params.Condition != "recognized" {
-		targets, err := resolveTargets(ctx, arg.Img)
-		if err != nil {
-			log.Warn().Err(err).Str("component", component).Msg("target hands could not be resolved")
-			return nil, false
-		}
-		status = evaluateHand(handCounts(detail), detail.Count, targets)
-	}
-	if !params.matches(detail, status) {
-		log.Debug().Str("component", component).Str("condition", params.Condition).
-			Int("count", detail.Count).Str("category", detail.Category).Str("status", status).
-			Msg("hand does not match the requested condition")
+	if !params.matches(detail) {
+		log.Debug().Str("component", component).
+			Int("count", detail.Count).Str("category", detail.Category).
+			Msg("hand does not match the requested count")
 		return nil, false
 	}
 	raw, err := json.Marshal(detail)
@@ -164,21 +169,20 @@ func (r *Recognition) Run(ctx *maa.Context, arg *maa.CustomRecognitionArg) (*maa
 		log.Debug().Err(err).Str("component", component).Msg("failed to encode recognized hand")
 		return nil, false
 	}
-	log.Info().Str("component", component).Str("condition", params.Condition).
-		Int("count", detail.Count).Str("category", detail.Category).Str("status", status).
-		Interface("slots", detail.Slots).Msg("hand condition matched")
+	log.Info().Str("component", component).
+		Int("count", detail.Count).Str("category", detail.Category).
+		Interface("slots", detail.Slots).Msg("hand matched")
 	return &maa.CustomRecognitionResult{Box: arg.Roi, Detail: string(raw)}, true
 }
 
+// parseParams 解析识别参数：可整体省略（如 Decide 只判定牌面完整性），仅 count 可选。
 func parseParams(raw string) (recognitionParam, error) {
 	var params recognitionParam
+	if strings.TrimSpace(raw) == "" {
+		return params, nil
+	}
 	if err := json.Unmarshal([]byte(raw), &params); err != nil {
 		return params, err
-	}
-	switch params.Condition {
-	case "recognized", "continuing", "rejected", "complete":
-	default:
-		return params, fmt.Errorf("unknown condition %q", params.Condition)
 	}
 	if params.Count != nil && (*params.Count < 0 || *params.Count > 5) {
 		return params, fmt.Errorf("count must be between 0 and 5")
@@ -186,9 +190,8 @@ func parseParams(raw string) (recognitionParam, error) {
 	return params, nil
 }
 
-func (p recognitionParam) matches(detail handDetail, status string) bool {
-	return (p.Count == nil || *p.Count == detail.Count) &&
-		(p.Condition == "recognized" || p.Condition == status)
+func (p recognitionParam) matches(detail handDetail) bool {
+	return p.Count == nil || *p.Count == detail.Count
 }
 
 // targetAttach 是 ArenaOfGamesDecide 节点 attach 的结构，由界面勾选的选项写入。
@@ -260,7 +263,7 @@ func resolveTargets(src recognitionSource, img image.Image) (map[category]bool, 
 
 // resolveDailyHand 给出当日牌型：当日已缓存则直接返回，否则从截图 OCR 一次并缓存。
 func resolveDailyHand(src recognitionSource, img image.Image) (category, error) {
-	if cached, ok := dailyHand.get(localDay()); ok {
+	if cached, ok := dailyHand.get(gameDay(time.Now())); ok {
 		return cached, nil
 	}
 	daily, err := recognizeDailyHand(src, img)
@@ -289,7 +292,7 @@ func recognizeDailyHand(src recognitionSource, img image.Image) (category, error
 	if !detail.Hit {
 		return catNone, fmt.Errorf("recognize %s returned no hit", dailyHandNode)
 	}
-	text := bestOCRText(detail)
+	text := allOCRText(detail)
 	if text == "" {
 		return catNone, fmt.Errorf("recognize %s returned no text", dailyHandNode)
 	}
@@ -307,6 +310,13 @@ func dailyHandNames(src recognitionSource) (map[string][]string, error) {
 	if err := json.Unmarshal([]byte(raw), &node); err != nil {
 		return nil, fmt.Errorf("parse %s attach: %w", dailyHandNode, err)
 	}
+	// 键集全等校验：attach 名单是牌型名的唯一源（OCR 节点不写 expected），
+	// 键与 categoryKeys 多一个或少一个都会让对应牌型静默失配，启动即拦下。
+	for key := range node.Attach {
+		if _, ok := categoryKeys[key]; !ok {
+			return nil, fmt.Errorf("node %s attach has unknown key %s", dailyHandNode, key)
+		}
+	}
 	names := make(map[string][]string)
 	for key := range categoryKeys {
 		list := node.Attach[key]
@@ -318,8 +328,8 @@ func dailyHandNames(src recognitionSource) (map[string][]string, error) {
 	return names, nil
 }
 
-// normalizeHandName 统一小写并去除全部空白（含词间），与 expected 中 \s* 的宽松空白
-// 语义对齐，避免「TwoPair」「Two  Pair」因空格差异匹配不到完整名字而降级误配短名。
+// normalizeHandName 统一小写并去除全部空白（含词间）：OCR 文本与 attach 名单同用本函数
+// 归一，「TwoPair」「Two  Pair」「투 페어」等任意空白形态都落到同一名字，不降级误配短名。
 func normalizeHandName(s string) string {
 	return strings.Join(strings.Fields(strings.ToLower(s)), "")
 }
@@ -352,40 +362,86 @@ func matchDailyCategory(text string, names map[string][]string) (category, error
 	return best, nil
 }
 
-// bestOCRText 取 OCR 识别的首个非空文本，优先 Best 结果。
-func bestOCRText(detail *maa.RecognitionDetail) string {
+// allOCRText 拼接 OCR 节点全部识别框的文本（优先 All，为空再退回 Filtered）。
+// expected 是按框过滤的：ppocrv5 把多词牌型名拆成多框时，只有恰好单独可匹配的片段
+// 留在 Filtered/Best 里，只取单框会把 "Two Pair" 读成 "Pair" 而误配短名，
+// 必须用未过滤的 All 拼回全文。框间以空格连接，normalizeHandName 会去掉全部空白。
+func allOCRText(detail *maa.RecognitionDetail) string {
 	if detail == nil || detail.Results == nil {
 		return ""
 	}
-	if detail.Results.Best != nil {
-		if o, ok := detail.Results.Best.AsOCR(); ok {
-			return strings.TrimSpace(o.Text)
-		}
+	results := detail.Results.All
+	if len(results) == 0 {
+		results = detail.Results.Filtered
 	}
-	for _, result := range detail.Results.Filtered {
+	texts := make([]string, 0, len(results))
+	for _, result := range results {
 		if result == nil {
 			continue
 		}
 		if o, ok := result.AsOCR(); ok {
-			return strings.TrimSpace(o.Text)
+			if t := strings.TrimSpace(o.Text); t != "" {
+				texts = append(texts, t)
+			}
 		}
 	}
-	return ""
+	return strings.Join(texts, " ")
+}
+
+// slotROIsCache 缓存 10 个静态槽位 ROI 节点（HandPosition/BackPosition1-5）的解析结果：
+// 值在运行期不会变化，而 CheckHand 每个心跳都会调用，重复 10 次 FFI 往返 + 反序列化
+// 纯属浪费。与 dailyHand 相同，依赖 MaaFramework 回调单线程，无需加锁。
+var slotROIsCache struct {
+	hand [5]maa.Rect
+	back [5]maa.Rect
+	set  bool
+}
+
+// slotROIs 给出五组牌面/牌背槽位 ROI，首次调用时读取并缓存节点定义。
+func slotROIs(src recognitionSource) (hand, back [5]maa.Rect, err error) {
+	if slotROIsCache.set {
+		return slotROIsCache.hand, slotROIsCache.back, nil
+	}
+	for i := range hand {
+		hand[i], err = readROI(src, "ArenaOfGamesHandPosition"+strconv.Itoa(i+1))
+		if err != nil {
+			return hand, back, err
+		}
+		back[i], err = readROI(src, "ArenaOfGamesBackPosition"+strconv.Itoa(i+1))
+		if err != nil {
+			return hand, back, err
+		}
+	}
+	slotROIsCache.hand, slotROIsCache.back, slotROIsCache.set = hand, back, true
+	return hand, back, nil
+}
+
+// handAllBack 只扫牌背并回答「五个槽是否都已回背」。
+// 等待空手（count==0）时的快速通道：有槽未回背（清牌动画未结束）必非空手，
+// 直接不命中，省掉 15 次牌面模板扫描；背面齐了仍由调用方走完整识别保留歧义校验。
+// ROI 读取或扫描失败时返回 true，交给完整路径兜底报错。
+func handAllBack(src recognitionSource, img image.Image) bool {
+	_, back, err := slotROIs(src)
+	if err != nil {
+		return true
+	}
+	var candidates [5][]handSlot
+	if err := collectMatches(src, img, "ArenaOfGamesCardBack", back, handSlot{Type: "back"}, &candidates); err != nil {
+		return true
+	}
+	for _, slot := range candidates {
+		if len(slot) == 0 {
+			return false
+		}
+	}
+	return true
 }
 
 // recognizeHand 只在本次截图内汇总牌面和牌背，所有槽均明确后才进行判定。
 func recognizeHand(src recognitionSource, img image.Image) (handDetail, error) {
-	var handROIs, backROIs [5]maa.Rect
-	for i := range handROIs {
-		var err error
-		handROIs[i], err = readROI(src, "ArenaOfGamesHandPosition"+strconv.Itoa(i+1))
-		if err != nil {
-			return handDetail{}, err
-		}
-		backROIs[i], err = readROI(src, "ArenaOfGamesBackPosition"+strconv.Itoa(i+1))
-		if err != nil {
-			return handDetail{}, err
-		}
+	handROIs, backROIs, err := slotROIs(src)
+	if err != nil {
+		return handDetail{}, err
 	}
 	var candidates [5][]handSlot
 	for _, suit := range []string{"Dot", "Bamboo", "Character"} {
@@ -624,34 +680,28 @@ func reachableCategories(counts [15]int, drawn int) map[category]bool {
 	return results
 }
 
+// readROI 读取节点 recognition.param.roi 并校验 720p 边界。GetNodeJSON 返回框架
+// 归一化后的嵌套格式（源文件里的扁平写法也会被 dumper 归一化，与 trialofswordmancy、
+// bettersliding 的同类实现一致），无需兼容扁平格式。
 func readROI(src interface{ GetNodeJSON(string) (string, error) }, node string) (maa.Rect, error) {
 	raw, err := src.GetNodeJSON(node)
 	if err != nil {
 		return maa.Rect{}, fmt.Errorf("read %s: %w", node, err)
 	}
-	// GetNodeJSON 可能返回资源的 v2 格式，也可能返回框架归一化后的扁平格式。
 	var definition struct {
-		ROI         *maa.Rect       `json:"roi"`
-		Recognition json.RawMessage `json:"recognition"`
+		Recognition struct {
+			Param struct {
+				ROI *maa.Rect `json:"roi"`
+			} `json:"param"`
+		} `json:"recognition"`
 	}
 	if err := json.Unmarshal([]byte(raw), &definition); err != nil {
 		return maa.Rect{}, fmt.Errorf("parse %s: %w", node, err)
 	}
-	if definition.ROI == nil {
-		var recognition struct {
-			Param struct {
-				ROI *maa.Rect `json:"roi"`
-			} `json:"param"`
-		}
-		if err := json.Unmarshal(definition.Recognition, &recognition); err != nil {
-			return maa.Rect{}, fmt.Errorf("parse %s recognition: %w", node, err)
-		}
-		definition.ROI = recognition.Param.ROI
-	}
-	if definition.ROI == nil {
+	if definition.Recognition.Param.ROI == nil {
 		return maa.Rect{}, fmt.Errorf("node %s has no slot ROI", node)
 	}
-	roi := *definition.ROI
+	roi := *definition.Recognition.Param.ROI
 	if roi.X() < 0 || roi.Y() < 0 || roi.Width() <= 0 || roi.Height() <= 0 ||
 		roi.X()+roi.Width() > 1280 || roi.Y()+roi.Height() > 720 {
 		return maa.Rect{}, fmt.Errorf("node %s has invalid 720p ROI %v", node, roi)

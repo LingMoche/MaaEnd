@@ -1,11 +1,16 @@
 package arenaofgames
 
 import (
+	"encoding/json"
 	"fmt"
 	"image"
 	"math"
+	"os"
+	"path/filepath"
 	"testing"
+	"time"
 
+	"github.com/MaaXYZ/MaaEnd/agent/go-service/pkg/jsonclean"
 	maa "github.com/MaaXYZ/maa-framework-go/v4"
 )
 
@@ -175,32 +180,53 @@ func TestEvaluateHand(t *testing.T) {
 	}
 }
 
-func TestParseParamsAndMatchConditions(t *testing.T) {
-	for _, condition := range []string{"recognized", "continuing", "rejected", "complete"} {
-		params, err := parseParams(fmt.Sprintf(`{"condition":%q}`, condition))
+func TestParseParamsAndMatchCount(t *testing.T) {
+	// 参数整体可省：Decide 只判定牌面完整性，不传 count。
+	for _, raw := range []string{"", "{}", "null"} {
+		params, err := parseParams(raw)
 		if err != nil {
-			t.Fatal(err)
+			t.Fatalf("parseParams(%q): %v", raw, err)
 		}
-		for _, status := range []string{"continuing", "rejected", "complete"} {
-			want := condition == "recognized" || condition == status
-			if got := params.matches(handDetail{Count: 3}, status); got != want {
-				t.Fatalf("condition=%s status=%s: matched=%v want=%v", condition, status, got, want)
-			}
+		if params.Count != nil || !params.matches(handDetail{Count: 3}) {
+			t.Fatalf("paramless params must match any hand: %+v", params)
 		}
 	}
 	for count := 0; count <= 5; count++ {
-		params, err := parseParams(fmt.Sprintf(`{"condition":"recognized","count":%d}`, count))
-		if err != nil || !params.matches(handDetail{Count: count}, "rejected") || params.matches(handDetail{Count: count + 1}, "rejected") {
+		params, err := parseParams(fmt.Sprintf(`{"count":%d}`, count))
+		if err != nil || !params.matches(handDetail{Count: count}) || params.matches(handDetail{Count: count + 1}) {
 			t.Fatalf("count gate %d failed: %+v, %v", count, params, err)
 		}
 	}
 	for _, raw := range []string{
-		``, `{`, `null`, `{}`, `[]`, `{"condition":"draw"}`, `{"condition":1}`,
-		`{"condition":"recognized","count":-1}`, `{"condition":"recognized","count":6}`,
-		`{"condition":"recognized","count":1.5}`, `{"condition":"recognized","count":"1"}`,
+		`{`, `[]`, `{"count":-1}`, `{"count":6}`,
+		`{"count":1.5}`, `{"count":"1"}`,
 	} {
 		if _, err := parseParams(raw); err == nil {
 			t.Fatalf("accepted invalid params %s", raw)
+		}
+	}
+}
+
+func TestGameDayBoundaryAtFourOClock(t *testing.T) {
+	local := time.FixedZone("local", 8*3600)
+	for _, tc := range []struct {
+		hhmm string
+		want int
+	}{
+		// 当日 04:00 前属于前一游戏日：凌晨缓存的今日好运到 04:00 必须过期。
+		{"00:00", 20261030},
+		{"03:59", 20261030},
+		{"04:00", 20261031},
+		{"12:00", 20261031},
+		{"23:59", 20261031},
+	} {
+		var hh, mm int
+		if _, err := fmt.Sscanf(tc.hhmm, "%d:%d", &hh, &mm); err != nil {
+			t.Fatal(err)
+		}
+		now := time.Date(2026, 10, 31, hh, mm, 0, 0, local)
+		if got := gameDay(now); got != tc.want {
+			t.Fatalf("gameDay(%s) = %d; want %d", tc.hhmm, got, tc.want)
 		}
 	}
 }
@@ -215,7 +241,7 @@ func TestParseTargetAttachAndResolveTargets(t *testing.T) {
 	}
 	store := nodeStore{
 		targetNode:    `{"attach":{"straight_flush":true}}`,
-		dailyHandNode: dailyHandNodeJSON,
+		dailyHandNode: dailyHandNodeJSON(t),
 	}
 	targets, err := resolveTargets(store, nil)
 	if err != nil || len(targets) != 1 || !targets[catStraightFlush] {
@@ -243,8 +269,8 @@ func TestParseTargetAttachAndResolveTargets(t *testing.T) {
 	if err != nil || len(targets) != 1 || !targets[catPair] {
 		t.Fatalf("resolveTargets = %v, %v; want cached daily pair", targets, err)
 	}
-	// 跨日的缓存即使已 set 也读不到，必须重新 OCR。
-	dailyHand = &dailyHandState{category: catPair, day: localDay() - 1, set: true}
+	// 跨游戏日的缓存即使已 set 也读不到，必须重新 OCR。
+	dailyHand = &dailyHandState{category: catPair, day: gameDay(time.Now()) - 1, set: true}
 	store[targetNode] = `{"attach":{"hand_of_today":true}}`
 	if targets, err := resolveTargets(store, nil); err == nil || targets != nil {
 		t.Fatalf("resolveTargets used a stale daily cache: %v, %v", targets, err)
@@ -261,7 +287,7 @@ func TestParseTargetAttachAndResolveTargets(t *testing.T) {
 }
 
 func TestMatchDailyCategoryPrefersLongestName(t *testing.T) {
-	names, err := dailyHandNames(nodeStore{dailyHandNode: dailyHandNodeJSON})
+	names, err := dailyHandNames(nodeStore{dailyHandNode: dailyHandNodeJSON(t)})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -307,7 +333,7 @@ func TestMatchDailyCategoryPrefersLongestName(t *testing.T) {
 func TestDailyHandNamesValidation(t *testing.T) {
 	for _, raw := range []string{
 		`{}`, `{"attach":{}}`, `{"attach":{"pair":["对子"]}}`, `{`,
-		`{"attach":{"pair":[]}}`,
+		`{"attach":{"pair":[]}}`, `{"attach":{"pair":["对子"],"high_card":["高牌"]}}`,
 	} {
 		if _, err := dailyHandNames(nodeStore{dailyHandNode: raw}); err == nil {
 			t.Fatalf("dailyHandNames accepted %s", raw)
@@ -350,21 +376,18 @@ func TestAssignMatchesKeepsDifferentCandidatesAndBestScore(t *testing.T) {
 	}
 }
 
-func TestReadROIHandlesResourceAndNormalizedNodes(t *testing.T) {
+func TestReadROIHandlesNormalizedNodes(t *testing.T) {
 	want := maa.Rect{233, 164, 38, 52}
-	for _, raw := range []string{
-		`{"recognition":{"type":"DirectHit","param":{"roi":[233,164,38,52]}}}`,
-		`{"recognition":"DirectHit","roi":[233,164,38,52]}`,
-	} {
-		got, err := readROI(nodeStore{"slot": raw}, "slot")
-		if err != nil || got != want {
-			t.Fatalf("readROI = %v, %v; want %v", got, err, want)
-		}
+	got, err := readROI(nodeStore{"slot": `{"recognition":{"type":"DirectHit","param":{"roi":[233,164,38,52]}}}`}, "slot")
+	if err != nil || got != want {
+		t.Fatalf("readROI = %v, %v; want %v", got, err, want)
 	}
 	for _, raw := range []string{
-		`{`, `{}`, `{"recognition":{"type":"DirectHit","param":{}}}`,
-		`{"roi":[-1,164,38,52]}`, `{"roi":[233,164,0,52]}`,
-		`{"roi":[1270,164,38,52]}`, `{"roi":[233,700,38,52]}`,
+		`{`, `{}`, `[]`, `{"recognition":{"type":"DirectHit","param":{}}}`,
+		`{"recognition":{"param":{"roi":[-1,164,38,52]}}}`,
+		`{"recognition":{"param":{"roi":[233,164,0,52]}}}`,
+		`{"recognition":{"param":{"roi":[1270,164,38,52]}}}`,
+		`{"recognition":{"param":{"roi":[233,700,38,52]}}}`,
 	} {
 		if _, err := readROI(nodeStore{"slot": raw}, "slot"); err == nil {
 			t.Fatalf("accepted invalid ROI %s", raw)
@@ -375,17 +398,26 @@ func TestReadROIHandlesResourceAndNormalizedNodes(t *testing.T) {
 	}
 }
 
-// dailyHandNodeJSON 是「今日好运」OCR 节点 attach 的最小样例，名字与键均齐全。
-// 名单与 ArenaOfGamesDailyHandText 的 attach 保持同步：按截图校准词表时两处一起改。
-const dailyHandNodeJSON = `{"attach":{` +
-	`"straight_flush":["同花顺","同花順","Straight Flush","ストレートフラッシュ","스트레이트 플러시"],` +
-	`"four_of_a_kind":["四条","四條","Quad","フォーカード","포카드"],` +
-	`"flush":["同花","Flush","フラッシュ","플러시"],` +
-	`"full_house":["葫芦","葫蘆","Full House","フルハウス","풀하우스"],` +
-	`"straight":["顺子","順子","Straight","ストレート","스트레이트"],` +
-	`"two_pair":["两对","兩對","Two Pair","ツーペア","투 페어"],` +
-	`"three_of_a_kind":["三条","三條","Triplet","スリーカード","트리플"],` +
-	`"pair":["对子","對子","Pair","ワンペア","원 페어"]}}`
+// dailyHandNodeJSON 读取资源里 ArenaOfGamesDailyHandText 的真实节点定义（JSONC 去注释后
+// 原样返回）。attach 名单是牌型名的唯一源，测试与运行时共用同一份数据——按截图校准
+// 词表时只改 JSON，名单与匹配逻辑的漂移会在测试里直接炸出来，无需人工保持同步。
+func dailyHandNodeJSON(t *testing.T) string {
+	t.Helper()
+	path := filepath.Join("..", "..", "..", "assets", "resource", "pipeline", "ArenaOfGames", "ArenaOfGamesCommon.json")
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read ArenaOfGamesCommon.json: %v", err)
+	}
+	var file map[string]json.RawMessage
+	if err := json.Unmarshal(jsonclean.Clean(raw), &file); err != nil {
+		t.Fatalf("parse ArenaOfGamesCommon.json: %v", err)
+	}
+	node, ok := file[dailyHandNode]
+	if !ok {
+		t.Fatalf("ArenaOfGamesCommon.json has no %s node", dailyHandNode)
+	}
+	return string(node)
+}
 
 func handCandidates(cards ...handSlot) [5][]handSlot {
 	var candidates [5][]handSlot

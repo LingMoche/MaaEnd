@@ -69,17 +69,11 @@
             },
             "then": {
                 "type": "object",
-                "required": [ "custom_recognition_param" ],
                 "properties": {
                     "custom_recognition_param": {
                         "type": "object",
                         "additionalProperties": false,
-                        "required": [ "condition" ],
                         "properties": {
-                            "condition": {
-                                "type": "string",
-                                "enum": [ "recognized", "continuing", "rejected", "complete" ]
-                            },
                             "count": {
                                 "type": "integer",
                                 "minimum": 0,

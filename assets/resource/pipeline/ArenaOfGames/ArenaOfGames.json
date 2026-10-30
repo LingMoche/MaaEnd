@@ -20,14 +20,11 @@
         ]
     },
     "ArenaOfGamesDecide": {
-        "desc": "单次识别手牌，按勾选目标牌型三态路由：凑成即结束（早停）、无法凑出转放弃、否则继续抽牌；next 由 Decide 动态覆盖",
+        "desc": "单次识别手牌，按勾选目标牌型三态路由：凑成即结束（早停）、无法凑出转放弃、否则按手牌数转 DrawCard1-5；next 由 Decide 动态覆盖",
         "recognition": {
             "type": "Custom",
             "param": {
-                "custom_recognition": "ArenaOfGames.CheckHand",
-                "custom_recognition_param": {
-                    "condition": "recognized"
-                }
+                "custom_recognition": "ArenaOfGames.CheckHand"
             }
         },
         "pre_delay": 0,
@@ -48,8 +45,8 @@
             "straight_flush": false
         }
     },
-    "ArenaOfGamesDrawCard": {
-        "desc": "点击抽牌按钮并循环重点，直到第 count+1 槽背面消失（wait_node 由 Decide 按手牌数覆盖）",
+    "ArenaOfGamesDrawCard1": {
+        "desc": "点击抽牌按钮抽出第1张铭牌：识别确认第1张完整可读后放行，持续2秒未确认（点击未生效）才补点",
         "recognition": {
             "type": "And",
             "param": {
@@ -62,30 +59,239 @@
         "action": {
             "type": "Custom",
             "param": {
-                "custom_action": "RepeatUntilNotFoundAction",
+                "custom_action": "RepeatUntilFoundAction",
                 "custom_action_param": {
                     "action": "Click",
-                    "interval_ms": 500,
-                    "repeat_count": 10,
-                    "wait_node": "ArenaOfGamesBackSlot1"
+                    "interval_ms": 2000,
+                    "repeat_count": 5,
+                    "wait_nodes": [
+                        "ArenaOfGamesDrawCardSuccess1"
+                    ]
                 }
             }
         },
         "post_delay": 0,
         "rate_limit": 0,
         "next": [
-            "ArenaOfGamesDrawCardSuccess"
+            "ArenaOfGamesDrawCardSuccess1"
         ]
     },
-    "ArenaOfGamesDrawCardSuccess": {
-        "desc": "等待新抽的铭牌完整显示（recognized count 由 Decide 覆盖为手牌数+1）",
+    "ArenaOfGamesDrawCard2": {
+        "desc": "点击抽牌按钮抽出第2张铭牌：识别确认第2张完整可读后放行，持续2秒未确认（点击未生效）才补点",
+        "recognition": {
+            "type": "And",
+            "param": {
+                "all_of": [
+                    "ArenaOfGamesDrawCardButton"
+                ]
+            }
+        },
+        "pre_delay": 0,
+        "action": {
+            "type": "Custom",
+            "param": {
+                "custom_action": "RepeatUntilFoundAction",
+                "custom_action_param": {
+                    "action": "Click",
+                    "interval_ms": 2000,
+                    "repeat_count": 5,
+                    "wait_nodes": [
+                        "ArenaOfGamesDrawCardSuccess2"
+                    ]
+                }
+            }
+        },
+        "post_delay": 0,
+        "rate_limit": 0,
+        "next": [
+            "ArenaOfGamesDrawCardSuccess2"
+        ]
+    },
+    "ArenaOfGamesDrawCard3": {
+        "desc": "点击抽牌按钮抽出第3张铭牌：识别确认第3张完整可读后放行，持续2秒未确认（点击未生效）才补点",
+        "recognition": {
+            "type": "And",
+            "param": {
+                "all_of": [
+                    "ArenaOfGamesDrawCardButton"
+                ]
+            }
+        },
+        "pre_delay": 0,
+        "action": {
+            "type": "Custom",
+            "param": {
+                "custom_action": "RepeatUntilFoundAction",
+                "custom_action_param": {
+                    "action": "Click",
+                    "interval_ms": 2000,
+                    "repeat_count": 5,
+                    "wait_nodes": [
+                        "ArenaOfGamesDrawCardSuccess3"
+                    ]
+                }
+            }
+        },
+        "post_delay": 0,
+        "rate_limit": 0,
+        "next": [
+            "ArenaOfGamesDrawCardSuccess3"
+        ]
+    },
+    "ArenaOfGamesDrawCard4": {
+        "desc": "点击抽牌按钮抽出第4张铭牌：识别确认第4张完整可读后放行，持续2秒未确认（点击未生效）才补点",
+        "recognition": {
+            "type": "And",
+            "param": {
+                "all_of": [
+                    "ArenaOfGamesDrawCardButton"
+                ]
+            }
+        },
+        "pre_delay": 0,
+        "action": {
+            "type": "Custom",
+            "param": {
+                "custom_action": "RepeatUntilFoundAction",
+                "custom_action_param": {
+                    "action": "Click",
+                    "interval_ms": 2000,
+                    "repeat_count": 5,
+                    "wait_nodes": [
+                        "ArenaOfGamesDrawCardSuccess4"
+                    ]
+                }
+            }
+        },
+        "post_delay": 0,
+        "rate_limit": 0,
+        "next": [
+            "ArenaOfGamesDrawCardSuccess4"
+        ]
+    },
+    "ArenaOfGamesDrawCard5": {
+        "desc": "点击抽牌按钮抽出第5张铭牌：识别确认第5张完整可读后放行，持续2秒未确认（点击未生效）才补点",
+        "recognition": {
+            "type": "And",
+            "param": {
+                "all_of": [
+                    "ArenaOfGamesDrawCardButton"
+                ]
+            }
+        },
+        "pre_delay": 0,
+        "action": {
+            "type": "Custom",
+            "param": {
+                "custom_action": "RepeatUntilFoundAction",
+                "custom_action_param": {
+                    "action": "Click",
+                    "interval_ms": 2000,
+                    "repeat_count": 5,
+                    "wait_nodes": [
+                        "ArenaOfGamesDrawCardSuccess5"
+                    ]
+                }
+            }
+        },
+        "post_delay": 0,
+        "rate_limit": 0,
+        "next": [
+            "ArenaOfGamesDrawCardSuccess5"
+        ]
+    },
+    "ArenaOfGamesDrawCardSuccess1": {
+        "desc": "等待第1张铭牌完整显示（手牌数恰为 1）",
         "recognition": {
             "type": "Custom",
             "param": {
                 "custom_recognition": "ArenaOfGames.CheckHand",
                 "custom_recognition_param": {
-                    "condition": "recognized",
                     "count": 1
+                }
+            }
+        },
+        "pre_delay": 0,
+        "action": {
+            "type": "DoNothing"
+        },
+        "post_delay": 0,
+        "rate_limit": 0,
+        "next": [
+            "ArenaOfGamesDecide"
+        ]
+    },
+    "ArenaOfGamesDrawCardSuccess2": {
+        "desc": "等待第2张铭牌完整显示（手牌数恰为 2）",
+        "recognition": {
+            "type": "Custom",
+            "param": {
+                "custom_recognition": "ArenaOfGames.CheckHand",
+                "custom_recognition_param": {
+                    "count": 2
+                }
+            }
+        },
+        "pre_delay": 0,
+        "action": {
+            "type": "DoNothing"
+        },
+        "post_delay": 0,
+        "rate_limit": 0,
+        "next": [
+            "ArenaOfGamesDecide"
+        ]
+    },
+    "ArenaOfGamesDrawCardSuccess3": {
+        "desc": "等待第3张铭牌完整显示（手牌数恰为 3）",
+        "recognition": {
+            "type": "Custom",
+            "param": {
+                "custom_recognition": "ArenaOfGames.CheckHand",
+                "custom_recognition_param": {
+                    "count": 3
+                }
+            }
+        },
+        "pre_delay": 0,
+        "action": {
+            "type": "DoNothing"
+        },
+        "post_delay": 0,
+        "rate_limit": 0,
+        "next": [
+            "ArenaOfGamesDecide"
+        ]
+    },
+    "ArenaOfGamesDrawCardSuccess4": {
+        "desc": "等待第4张铭牌完整显示（手牌数恰为 4）",
+        "recognition": {
+            "type": "Custom",
+            "param": {
+                "custom_recognition": "ArenaOfGames.CheckHand",
+                "custom_recognition_param": {
+                    "count": 4
+                }
+            }
+        },
+        "pre_delay": 0,
+        "action": {
+            "type": "DoNothing"
+        },
+        "post_delay": 0,
+        "rate_limit": 0,
+        "next": [
+            "ArenaOfGamesDecide"
+        ]
+    },
+    "ArenaOfGamesDrawCardSuccess5": {
+        "desc": "等待第5张铭牌完整显示（手牌数恰为 5）",
+        "recognition": {
+            "type": "Custom",
+            "param": {
+                "custom_recognition": "ArenaOfGames.CheckHand",
+                "custom_recognition_param": {
+                    "count": 5
                 }
             }
         },
@@ -135,7 +341,7 @@
         ]
     },
     "ArenaOfGamesAbandonConfirm": {
-        "desc": "确认百趣演武的放弃挑战弹窗",
+        "desc": "确认百趣演武的放弃挑战弹窗（灰取消+黄确认双键组合即放弃弹窗特征：掉线等提示仅中央单黄键，不会误命中）",
         "recognition": {
             "type": "And",
             "param": {
@@ -163,7 +369,6 @@
             "param": {
                 "custom_recognition": "ArenaOfGames.CheckHand",
                 "custom_recognition_param": {
-                    "condition": "recognized",
                     "count": 0
                 }
             }

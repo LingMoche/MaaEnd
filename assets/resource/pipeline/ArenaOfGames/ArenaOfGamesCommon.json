@@ -23,7 +23,7 @@
         "rate_limit": 0
     },
     "ArenaOfGamesDailyHandText": {
-        "desc": "今日好运组合牌型名文本，由手牌识别器读取并映射为当日目标牌型",
+        "desc": "今日好运组合牌型名文本（裸 OCR，无 expected），由手牌识别器按 attach 名单映射为当日目标牌型",
         "recognition": {
             "type": "OCR",
             "param": {
@@ -32,47 +32,6 @@
                     595,
                     160,
                     32
-                ],
-                "expected": [
-                    "同花顺",
-                    "同花順",
-                    "(?i)Straight\\s*Flush",
-                    "ストレートフラッシュ",
-                    "스트레이트 플러시",
-                    "四条",
-                    "四條",
-                    "(?i)Quad",
-                    "フォーカード",
-                    "포카드",
-                    "同花",
-                    "(?i)Flush",
-                    "フラッシュ",
-                    "플러시",
-                    "葫芦",
-                    "葫蘆",
-                    "(?i)Full\\s*House",
-                    "フルハウス",
-                    "풀하우스",
-                    "顺子",
-                    "順子",
-                    "(?i)Straight",
-                    "ストレート",
-                    "스트레이트",
-                    "两对",
-                    "兩對",
-                    "(?i)Two\\s*Pair",
-                    "ツーペア",
-                    "투 페어",
-                    "三条",
-                    "三條",
-                    "(?i)Triplet",
-                    "スリーカード",
-                    "트리플",
-                    "对子",
-                    "對子",
-                    "(?i)Pair",
-                    "ワンペア",
-                    "원 페어"
                 ]
             }
         },
@@ -80,6 +39,7 @@
         "post_delay": 0,
         "rate_limit": 0,
         // 牌型名取自游戏 I18nTextTable（1.6.4@11343132-9）；zh_tw「同花」与国际服「Flush」同名，匹配时按名字最长优先
+        // 本名单是唯一源：节点不写 expected，文本到牌型的匹配全部在 ArenaOfGames.CheckHand 中按名单完成（同 TrialOfSwordmancy 的裸 OCR 模式）
         "attach": {
             "straight_flush": [
                 "同花顺",
@@ -668,101 +628,6 @@
                     150,
                     60
                 ]
-            }
-        },
-        "pre_delay": 0,
-        "post_delay": 0,
-        "rate_limit": 0
-    },
-    "ArenaOfGamesBackSlot1": {
-        "desc": "第1槽空位背面锚点，背面消失即该槽已抽出铭牌",
-        "recognition": {
-            "type": "TemplateMatch",
-            "param": {
-                "roi": [
-                    114,
-                    260,
-                    150,
-                    60
-                ],
-                "template": "ArenaOfGames/CardBack.png",
-                "threshold": 0.9
-            }
-        },
-        "pre_delay": 0,
-        "post_delay": 0,
-        "rate_limit": 0
-    },
-    "ArenaOfGamesBackSlot2": {
-        "desc": "第2槽空位背面锚点，背面消失即该槽已抽出铭牌",
-        "recognition": {
-            "type": "TemplateMatch",
-            "param": {
-                "roi": [
-                    298,
-                    260,
-                    150,
-                    60
-                ],
-                "template": "ArenaOfGames/CardBack.png",
-                "threshold": 0.9
-            }
-        },
-        "pre_delay": 0,
-        "post_delay": 0,
-        "rate_limit": 0
-    },
-    "ArenaOfGamesBackSlot3": {
-        "desc": "第3槽空位背面锚点，背面消失即该槽已抽出铭牌",
-        "recognition": {
-            "type": "TemplateMatch",
-            "param": {
-                "roi": [
-                    482,
-                    260,
-                    150,
-                    60
-                ],
-                "template": "ArenaOfGames/CardBack.png",
-                "threshold": 0.9
-            }
-        },
-        "pre_delay": 0,
-        "post_delay": 0,
-        "rate_limit": 0
-    },
-    "ArenaOfGamesBackSlot4": {
-        "desc": "第4槽空位背面锚点，背面消失即该槽已抽出铭牌",
-        "recognition": {
-            "type": "TemplateMatch",
-            "param": {
-                "roi": [
-                    666,
-                    260,
-                    150,
-                    60
-                ],
-                "template": "ArenaOfGames/CardBack.png",
-                "threshold": 0.9
-            }
-        },
-        "pre_delay": 0,
-        "post_delay": 0,
-        "rate_limit": 0
-    },
-    "ArenaOfGamesBackSlot5": {
-        "desc": "第5槽空位背面锚点，背面消失即该槽已抽出铭牌",
-        "recognition": {
-            "type": "TemplateMatch",
-            "param": {
-                "roi": [
-                    850,
-                    260,
-                    150,
-                    60
-                ],
-                "template": "ArenaOfGames/CardBack.png",
-                "threshold": 0.9
             }
         },
         "pre_delay": 0,
