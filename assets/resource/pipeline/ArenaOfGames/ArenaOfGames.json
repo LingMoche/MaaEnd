@@ -1,6 +1,6 @@
 {
     "ArenaOfGamesMain": {
-        "desc": "百趣演武同花顺任务入口，需先打开抽牌界面",
+        "desc": "百趣演武抽牌任务入口，需先打开抽牌界面",
         "recognition": {
             "type": "And",
             "param": {
@@ -20,7 +20,7 @@
         ]
     },
     "ArenaOfGamesDispatch": {
-        "desc": "根据已确认的手牌选择下一步",
+        "desc": "根据已确认的手牌与勾选的目标牌型选择下一步",
         "pre_delay": 0,
         "action": {
             "type": "DoNothing"
@@ -35,14 +35,21 @@
             "ArenaOfGamesDraw2",
             "ArenaOfGamesDraw3",
             "ArenaOfGamesDraw4"
-        ]
+        ],
+        "attach": {
+            "hand_of_today": false,
+            "flush": false,
+            "full_house": false,
+            "four_of_a_kind": false,
+            "straight_flush": false
+        }
     },
     "ArenaOfGamesComplete": {
-        "desc": "任意花色的1至5点已齐全，保留当前手牌",
+        "desc": "当前手牌已凑成任一勾选的目标牌型，保留手牌并停止（早停）",
         "recognition": {
             "type": "Custom",
             "param": {
-                "custom_recognition": "ArenaOfGames.CheckStraightFlush",
+                "custom_recognition": "ArenaOfGames.CheckHand",
                 "custom_recognition_param": {
                     "condition": "complete"
                 }
@@ -57,11 +64,11 @@
         "next": []
     },
     "ArenaOfGamesRejected": {
-        "desc": "当前手牌已无法组成同花顺",
+        "desc": "当前手牌已无法凑出任一勾选的目标牌型",
         "recognition": {
             "type": "Custom",
             "param": {
-                "custom_recognition": "ArenaOfGames.CheckStraightFlush",
+                "custom_recognition": "ArenaOfGames.CheckHand",
                 "custom_recognition_param": {
                     "condition": "rejected"
                 }
@@ -78,7 +85,7 @@
         ]
     },
     "ArenaOfGamesDraw0": {
-        "desc": "已确认0张手牌仍可组成同花顺，抽取下一张",
+        "desc": "已确认0张手牌仍可凑出目标牌型，抽取下一张",
         "recognition": {
             "type": "And",
             "param": {
@@ -87,7 +94,7 @@
                         "recognition": {
                             "type": "Custom",
                             "param": {
-                                "custom_recognition": "ArenaOfGames.CheckStraightFlush",
+                                "custom_recognition": "ArenaOfGames.CheckHand",
                                 "custom_recognition_param": {
                                     "condition": "continuing",
                                     "count": 0
@@ -115,7 +122,7 @@
         "recognition": {
             "type": "Custom",
             "param": {
-                "custom_recognition": "ArenaOfGames.CheckStraightFlush",
+                "custom_recognition": "ArenaOfGames.CheckHand",
                 "custom_recognition_param": {
                     "condition": "recognized",
                     "count": 1
@@ -133,7 +140,7 @@
         ]
     },
     "ArenaOfGamesDraw1": {
-        "desc": "已确认1张手牌仍可组成同花顺，抽取下一张",
+        "desc": "已确认1张手牌仍可凑出目标牌型，抽取下一张",
         "recognition": {
             "type": "And",
             "param": {
@@ -142,7 +149,7 @@
                         "recognition": {
                             "type": "Custom",
                             "param": {
-                                "custom_recognition": "ArenaOfGames.CheckStraightFlush",
+                                "custom_recognition": "ArenaOfGames.CheckHand",
                                 "custom_recognition_param": {
                                     "condition": "continuing",
                                     "count": 1
@@ -170,7 +177,7 @@
         "recognition": {
             "type": "Custom",
             "param": {
-                "custom_recognition": "ArenaOfGames.CheckStraightFlush",
+                "custom_recognition": "ArenaOfGames.CheckHand",
                 "custom_recognition_param": {
                     "condition": "recognized",
                     "count": 2
@@ -188,7 +195,7 @@
         ]
     },
     "ArenaOfGamesDraw2": {
-        "desc": "已确认2张手牌仍可组成同花顺，抽取下一张",
+        "desc": "已确认2张手牌仍可凑出目标牌型，抽取下一张",
         "recognition": {
             "type": "And",
             "param": {
@@ -197,7 +204,7 @@
                         "recognition": {
                             "type": "Custom",
                             "param": {
-                                "custom_recognition": "ArenaOfGames.CheckStraightFlush",
+                                "custom_recognition": "ArenaOfGames.CheckHand",
                                 "custom_recognition_param": {
                                     "condition": "continuing",
                                     "count": 2
@@ -225,7 +232,7 @@
         "recognition": {
             "type": "Custom",
             "param": {
-                "custom_recognition": "ArenaOfGames.CheckStraightFlush",
+                "custom_recognition": "ArenaOfGames.CheckHand",
                 "custom_recognition_param": {
                     "condition": "recognized",
                     "count": 3
@@ -243,7 +250,7 @@
         ]
     },
     "ArenaOfGamesDraw3": {
-        "desc": "已确认3张手牌仍可组成同花顺，抽取下一张",
+        "desc": "已确认3张手牌仍可凑出目标牌型，抽取下一张",
         "recognition": {
             "type": "And",
             "param": {
@@ -252,7 +259,7 @@
                         "recognition": {
                             "type": "Custom",
                             "param": {
-                                "custom_recognition": "ArenaOfGames.CheckStraightFlush",
+                                "custom_recognition": "ArenaOfGames.CheckHand",
                                 "custom_recognition_param": {
                                     "condition": "continuing",
                                     "count": 3
@@ -280,7 +287,7 @@
         "recognition": {
             "type": "Custom",
             "param": {
-                "custom_recognition": "ArenaOfGames.CheckStraightFlush",
+                "custom_recognition": "ArenaOfGames.CheckHand",
                 "custom_recognition_param": {
                     "condition": "recognized",
                     "count": 4
@@ -298,7 +305,7 @@
         ]
     },
     "ArenaOfGamesDraw4": {
-        "desc": "已确认4张手牌仍可组成同花顺，抽取下一张",
+        "desc": "已确认4张手牌仍可凑出目标牌型，抽取下一张",
         "recognition": {
             "type": "And",
             "param": {
@@ -307,7 +314,7 @@
                         "recognition": {
                             "type": "Custom",
                             "param": {
-                                "custom_recognition": "ArenaOfGames.CheckStraightFlush",
+                                "custom_recognition": "ArenaOfGames.CheckHand",
                                 "custom_recognition_param": {
                                     "condition": "continuing",
                                     "count": 4
@@ -335,7 +342,7 @@
         "recognition": {
             "type": "Custom",
             "param": {
-                "custom_recognition": "ArenaOfGames.CheckStraightFlush",
+                "custom_recognition": "ArenaOfGames.CheckHand",
                 "custom_recognition_param": {
                     "condition": "recognized",
                     "count": 5
@@ -401,7 +408,7 @@
         "recognition": {
             "type": "Custom",
             "param": {
-                "custom_recognition": "ArenaOfGames.CheckStraightFlush",
+                "custom_recognition": "ArenaOfGames.CheckHand",
                 "custom_recognition_param": {
                     "condition": "recognized",
                     "count": 0

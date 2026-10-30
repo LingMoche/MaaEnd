@@ -10,7 +10,7 @@
                 "AeroSalvageBalloonStateRecognition",
                 "AeroSalvageGridRecognition",
                 "AeroSalvageInitialStateRecognition",
-                "ArenaOfGames.CheckStraightFlush",
+                "ArenaOfGames.CheckHand",
                 "AutoSellPriceCompareRecognition",
                 "AutoSellScanItemRecognition",
                 "AutoStockpile.Recognition",
@@ -64,7 +64,7 @@
                 "type": "object",
                 "required": [ "custom_recognition" ],
                 "properties": {
-                    "custom_recognition": { "const": "ArenaOfGames.CheckStraightFlush" }
+                    "custom_recognition": { "const": "ArenaOfGames.CheckHand" }
                 }
             },
             "then": {

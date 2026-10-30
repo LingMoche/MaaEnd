@@ -20,6 +20,123 @@
         "post_delay": 0,
         "rate_limit": 0
     },
+    "ArenaOfGamesDailyHandText": {
+        "desc": "今日好运牌型名文本，由手牌识别器读取并映射为当日目标牌型",
+        "recognition": {
+            "type": "OCR",
+            "param": {
+                "roi": [
+                    123,
+                    595,
+                    160,
+                    32
+                ],
+                // 各语言牌型全名，与 attach 中的名单一一对应，新增语言时两处同步
+                "expected": [
+                    "同花顺",
+                    "同花順",
+                    "Straight Flush",
+                    "ストレートフラッシュ",
+                    "스트레이트 플러시",
+                    "四条",
+                    "四條",
+                    "Four of a Kind",
+                    "フォーカード",
+                    "포커드",
+                    "同花",
+                    "Flush",
+                    "フラッシュ",
+                    "플러시",
+                    "葫芦",
+                    "葫蘆",
+                    "Full House",
+                    "フルハウス",
+                    "풀하우스",
+                    "顺子",
+                    "順子",
+                    "Straight",
+                    "ストレート",
+                    "스트레이트",
+                    "两对",
+                    "兩對",
+                    "Two Pair",
+                    "ツーペア",
+                    "투페어",
+                    "三条",
+                    "三條",
+                    "Three of a Kind",
+                    "スリーカード",
+                    "스리카드",
+                    "对子",
+                    "對子",
+                    "Pair",
+                    "ワンペア",
+                    "원페어"
+                ]
+            }
+        },
+        "pre_delay": 0,
+        "post_delay": 0,
+        "rate_limit": 0,
+        // TODO: 繁中/英/日/韩牌型名待截图校准；zh_tw「同花」与国际服「Flush」同名，匹配时按名字最长优先
+        "attach": {
+            "straight_flush": [
+                "同花顺",
+                "同花順",
+                "Straight Flush",
+                "ストレートフラッシュ",
+                "스트레이트 플러시"
+            ],
+            "four_of_a_kind": [
+                "四条",
+                "四條",
+                "Four of a Kind",
+                "フォーカード",
+                "포커드"
+            ],
+            "flush": [
+                "同花",
+                "Flush",
+                "フラッシュ",
+                "플러시"
+            ],
+            "full_house": [
+                "葫芦",
+                "葫蘆",
+                "Full House",
+                "フルハウス",
+                "풀하우스"
+            ],
+            "straight": [
+                "顺子",
+                "順子",
+                "Straight",
+                "ストレート",
+                "스트레이트"
+            ],
+            "two_pair": [
+                "两对",
+                "兩對",
+                "Two Pair",
+                "ツーペア",
+                "투페어"
+            ],
+            "three_of_a_kind": [
+                "三条",
+                "三條",
+                "Three of a Kind",
+                "スリーカード",
+                "스리카드"
+            ],
+            "pair": [
+                "对子",
+                "對子",
+                "Pair",
+                "ワンペア",
+                "원페어"
+            ]
+        }
+    },
     "ArenaOfGamesDrawCardButton": {
         "desc": "抽牌按钮固定图形，兼容常态和悬停态",
         "recognition": {

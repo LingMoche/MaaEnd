@@ -10,42 +10,48 @@
             "image": "百趣演武_手牌_2筒2条4筒3条1万.png",
             "hits": [
                 "ArenaOfGamesInDrawMenu",
-                "ArenaOfGamesAbandonButton"
+                "ArenaOfGamesAbandonButton",
+                "ArenaOfGamesDailyHandText"
             ]
         },
         {
             "image": "百趣演武_手牌_1万2筒1条2筒5条.png",
             "hits": [
                 "ArenaOfGamesInDrawMenu",
-                "ArenaOfGamesAbandonButton"
+                "ArenaOfGamesAbandonButton",
+                "ArenaOfGamesDailyHandText"
             ]
         },
         {
             "image": "百趣演武_手牌_5筒2条2条3筒4条.png",
             "hits": [
                 "ArenaOfGamesInDrawMenu",
-                "ArenaOfGamesAbandonButton"
+                "ArenaOfGamesAbandonButton",
+                "ArenaOfGamesDailyHandText"
             ]
         },
         {
             "image": "百趣演武_手牌_2筒1万5条5万4万.png",
             "hits": [
                 "ArenaOfGamesInDrawMenu",
-                "ArenaOfGamesAbandonButton"
+                "ArenaOfGamesAbandonButton",
+                "ArenaOfGamesDailyHandText"
             ]
         },
         {
             "image": "百趣演武_手牌_2条1万1筒5筒4万.png",
             "hits": [
                 "ArenaOfGamesInDrawMenu",
-                "ArenaOfGamesAbandonButton"
+                "ArenaOfGamesAbandonButton",
+                "ArenaOfGamesDailyHandText"
             ]
         },
         {
             "image": "百趣演武_手牌_4条3万3筒2筒1筒.png",
             "hits": [
                 "ArenaOfGamesInDrawMenu",
-                "ArenaOfGamesAbandonButton"
+                "ArenaOfGamesAbandonButton",
+                "ArenaOfGamesDailyHandText"
             ]
         },
         {
@@ -53,15 +59,17 @@
             "hits": [
                 "ArenaOfGamesInDrawMenu",
                 "ArenaOfGamesDrawCardButton",
-                "ArenaOfGamesAbandonButton"
+                "ArenaOfGamesAbandonButton",
+                "ArenaOfGamesDailyHandText"
             ]
         },
         {
-            "name": "空手时显示撤离按钮，抽牌按钮常态可用",
+            "name": "空手时显示撤离按钮，抽牌按钮常态可用，今日好运组合为两对",
             "image": "百趣演武_空手_抽牌常态.png",
             "hits": [
                 "ArenaOfGamesInDrawMenu",
-                "ArenaOfGamesDrawCardButton"
+                "ArenaOfGamesDrawCardButton",
+                "ArenaOfGamesDailyHandText"
             ]
         },
         {
@@ -69,15 +77,17 @@
             "image": "百趣演武_空手_抽牌悬停.png",
             "hits": [
                 "ArenaOfGamesInDrawMenu",
-                "ArenaOfGamesDrawCardButton"
+                "ArenaOfGamesDrawCardButton",
+                "ArenaOfGamesDailyHandText"
             ]
         },
         {
-            "name": "英文界面抽牌按钮使用通用图形识别",
+            "name": "英文界面抽牌按钮使用通用图形识别，今日好运组合为 Two Pair",
             "image": "百趣演武_英文_空手.png",
             "hits": [
                 "ArenaOfGamesInDrawMenu",
-                "ArenaOfGamesDrawCardButton"
+                "ArenaOfGamesDrawCardButton",
+                "ArenaOfGamesDailyHandText"
             ]
         },
         {
