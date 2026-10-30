@@ -85,7 +85,8 @@
                 "Flush",
                 "FullHouse",
                 "FourOfAKind"
-            ]
+            ],
+            "min_count": 1
         }
     }
 }
