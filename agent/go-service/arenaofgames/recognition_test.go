@@ -275,6 +275,11 @@ func TestMatchDailyCategoryPrefersLongestName(t *testing.T) {
 		{"Straight Flush", catStraightFlush},
 		{"straight", catStraight},
 		{"Two Pair", catTwoPair},
+		// OCR 节点 expected 用 \s* 接受词间任意空白，Go 侧须同样归一化。
+		{"TwoPair", catTwoPair},
+		{"STRAIGHT  FLUSH", catStraightFlush},
+		{"fullhouse", catFullHouse},
+		{"투페어", catTwoPair},
 		{"ストレートフラッシュ", catStraightFlush},
 		{"四条两对", catFourOfAKind},
 		{"Quad", catFourOfAKind},

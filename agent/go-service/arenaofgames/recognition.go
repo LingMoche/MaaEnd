@@ -318,21 +318,27 @@ func dailyHandNames(src recognitionSource) (map[string][]string, error) {
 	return names, nil
 }
 
+// normalizeHandName 统一小写并去除全部空白（含词间），与 expected 中 \s* 的宽松空白
+// 语义对齐，避免「TwoPair」「Two  Pair」因空格差异匹配不到完整名字而降级误配短名。
+func normalizeHandName(s string) string {
+	return strings.Join(strings.Fields(strings.ToLower(s)), "")
+}
+
 // matchDailyCategory 把 OCR 文本映射为牌型，只认文本中出现的完整名字并取最长，
 // 避免「同花顺」被「同花」、「Straight」被「Straight Flush」抢先匹配；
 // 等长平局按牌型等级决胜，保证同一文本的映射确定。
 func matchDailyCategory(text string, names map[string][]string) (category, error) {
-	lower := strings.ToLower(strings.TrimSpace(text))
+	normalized := normalizeHandName(text)
 	var best category
 	bestLen := 0
 	for key, cat := range categoryKeys {
 		for _, name := range names[key] {
-			candidate := strings.ToLower(strings.TrimSpace(name))
+			candidate := normalizeHandName(name)
 			if candidate == "" {
 				continue
 			}
 			length := len([]rune(candidate))
-			if !strings.Contains(lower, candidate) {
+			if !strings.Contains(normalized, candidate) {
 				continue
 			}
 			if length > bestLen || (length == bestLen && cat > best) {
