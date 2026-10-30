@@ -140,7 +140,7 @@
             "type": "And",
             "param": {
                 "all_of": [
-                    "ArenaOfGamesAbandonPopupText",
+                    "GrayCancelButton",
                     "YellowConfirmButtonType1"
                 ],
                 "box_index": 1

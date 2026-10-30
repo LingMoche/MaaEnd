@@ -93,7 +93,7 @@
         {
             "image": "百趣演武_放弃挑战_确认.png",
             "hits": [
-                "ArenaOfGamesAbandonPopupText",
+                "GrayCancelButton",
                 "YellowConfirmButtonType1",
                 "ArenaOfGamesAbandonConfirm"
             ]

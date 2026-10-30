@@ -536,16 +536,16 @@ func categoryOf(counts [15]int) category {
 	}
 	// 葫芦：不限花色，3 张同点数 + 2 张另一同点数，两组点数不能相同。
 	if total == 5 {
-		var trips, pairs int
+		var triplets, pairs int
 		for p := 1; p <= 5; p++ {
 			switch {
 			case points[p] >= 3:
-				trips++
+				triplets++
 			case points[p] == 2:
 				pairs++
 			}
 		}
-		if trips == 1 && pairs == 1 {
+		if triplets == 1 && pairs == 1 {
 			return catFullHouse
 		}
 	}

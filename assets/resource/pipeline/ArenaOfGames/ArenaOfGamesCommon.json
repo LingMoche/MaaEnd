@@ -12,7 +12,9 @@
                 ],
                 "expected": [
                     "百趣演武",
-                    "ARENA OF GAMES"
+                    "(?i)Arena\\s*of\\s*Games",
+                    "다채로운 연무"
+                    // 繁中、日文标题与简中相同
                 ]
             }
         },
@@ -21,7 +23,7 @@
         "rate_limit": 0
     },
     "ArenaOfGamesDailyHandText": {
-        "desc": "今日好运牌型名文本，由手牌识别器读取并映射为当日目标牌型",
+        "desc": "今日好运组合牌型名文本，由手牌识别器读取并映射为当日目标牌型",
         "recognition": {
             "type": "OCR",
             "param": {
@@ -31,54 +33,53 @@
                     160,
                     32
                 ],
-                // 各语言牌型全名，与 attach 中的名单一一对应，新增语言时两处同步
                 "expected": [
                     "同花顺",
                     "同花順",
-                    "Straight Flush",
+                    "(?i)Straight\\s*Flush",
                     "ストレートフラッシュ",
                     "스트레이트 플러시",
                     "四条",
                     "四條",
-                    "Four of a Kind",
+                    "(?i)Quad",
                     "フォーカード",
-                    "포커드",
+                    "포카드",
                     "同花",
-                    "Flush",
+                    "(?i)Flush",
                     "フラッシュ",
                     "플러시",
                     "葫芦",
                     "葫蘆",
-                    "Full House",
+                    "(?i)Full\\s*House",
                     "フルハウス",
                     "풀하우스",
                     "顺子",
                     "順子",
-                    "Straight",
+                    "(?i)Straight",
                     "ストレート",
                     "스트레이트",
                     "两对",
                     "兩對",
-                    "Two Pair",
+                    "(?i)Two\\s*Pair",
                     "ツーペア",
-                    "투페어",
+                    "투 페어",
                     "三条",
                     "三條",
-                    "Three of a Kind",
+                    "(?i)Triplet",
                     "スリーカード",
-                    "스리카드",
+                    "트리플",
                     "对子",
                     "對子",
-                    "Pair",
+                    "(?i)Pair",
                     "ワンペア",
-                    "원페어"
+                    "원 페어"
                 ]
             }
         },
         "pre_delay": 0,
         "post_delay": 0,
         "rate_limit": 0,
-        // TODO: 繁中/英/日/韩牌型名待截图校准；zh_tw「同花」与国际服「Flush」同名，匹配时按名字最长优先
+        // 牌型名取自游戏 I18nTextTable（1.6.4@11343132-9）；zh_tw「同花」与国际服「Flush」同名，匹配时按名字最长优先
         "attach": {
             "straight_flush": [
                 "同花顺",
@@ -90,9 +91,9 @@
             "four_of_a_kind": [
                 "四条",
                 "四條",
-                "Four of a Kind",
+                "Quad",
                 "フォーカード",
-                "포커드"
+                "포카드"
             ],
             "flush": [
                 "同花",
@@ -119,21 +120,21 @@
                 "兩對",
                 "Two Pair",
                 "ツーペア",
-                "투페어"
+                "투 페어"
             ],
             "three_of_a_kind": [
                 "三条",
                 "三條",
-                "Three of a Kind",
+                "Triplet",
                 "スリーカード",
-                "스리카드"
+                "트리플"
             ],
             "pair": [
                 "对子",
                 "對子",
                 "Pair",
                 "ワンペア",
-                "원페어"
+                "원 페어"
             ]
         }
     },
@@ -171,33 +172,11 @@
                     75
                 ],
                 "expected": [
-                    "放弃挑战"
-                ]
-            }
-        },
-        "pre_delay": 0,
-        "post_delay": 0,
-        "rate_limit": 0
-    },
-    "ArenaOfGamesAbandonPopupText": {
-        "desc": "百趣演武放弃确认弹窗完整正文",
-        "recognition": {
-            "type": "OCR",
-            "param": {
-                "roi": [
-                    420,
-                    330,
-                    445,
-                    55
-                ],
-                "expected": [
-                    "放弃后将无法获得任何奖励点，是否确认放弃？"
-                ],
-                "replace": [
-                    [
-                        "\\?",
-                        "？"
-                    ]
+                    "放弃挑战",
+                    "放棄挑戰",
+                    "(?i)Forfeit",
+                    "諦める",
+                    "도전 포기"
                 ]
             }
         },
