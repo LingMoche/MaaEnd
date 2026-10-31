@@ -59,6 +59,7 @@
         "ArenaOfGamesRegex": {
             "type": "input",
             "label": "$option.ArenaOfGamesRegex.label",
+            "description": "$option.ArenaOfGamesRegex.description",
             "inputs": [
                 {
                     "name": "Pattern",
