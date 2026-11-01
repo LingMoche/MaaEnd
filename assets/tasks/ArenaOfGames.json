@@ -64,8 +64,10 @@
                 {
                     "name": "Pattern",
                     "label": "$option.ArenaOfGamesRegex.Pattern.label",
-                    "default": "",
-                    "pipeline_type": "string"
+                    "default": "(?:[1-5]p){4}",
+                    "pipeline_type": "string",
+                    "verify": "^[\\s\\S]*\\S[\\s\\S]*$",
+                    "pattern_msg": "$option.ArenaOfGamesRegex.Pattern.pattern_msg"
                 }
             ],
             "pipeline_override": {
